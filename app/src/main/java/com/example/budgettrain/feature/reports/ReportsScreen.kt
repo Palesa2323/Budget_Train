@@ -19,6 +19,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import com.example.budgettrain.data.dao.CategoryTotal
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,12 +37,14 @@ import java.util.Calendar
 import java.util.Locale
 
 @Composable
-fun ReportsScreen() {
+fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
     val context = LocalContext.current
     val sdf = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
     val cal = remember { Calendar.getInstance() }
     var startMillis by remember { mutableStateOf(cal.clone().let { it as Calendar; it.set(Calendar.DAY_OF_MONTH, 1); it.timeInMillis }) }
     var endMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    vm.setRange(startMillis, endMillis)
+    val state = vm.state
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("Budget Train", style = MaterialTheme.typography.headlineMedium, color = Color(0xFF2196F3))
@@ -64,7 +70,9 @@ fun ReportsScreen() {
                     }) { Text("End: ${sdf.format(endMillis)}", maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
                 Spacer(Modifier.height(12.dp))
-                Button(onClick = { /* TODO: hook to Room and load data */ }) { Text("Load Report") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { vm.load() }) { Text("Load Report") }
+                }
             }
         }
 
@@ -90,7 +98,9 @@ fun ReportsScreen() {
             Column(Modifier.padding(16.dp)) {
                 Text("Budget Trends", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(8.dp))
-                Text("Jan to Aug overview (demo)")
+                Text("Jan to Aug overview")
+                Spacer(Modifier.height(8.dp))
+                CategoryTotalsList(totalsFlow = state.value.categoryTotals)
             }
         }
     }
@@ -122,6 +132,22 @@ private fun SimpleBars() {
                 size = Size(barWidth, barHeight),
                 cornerRadius = androidx.compose.ui.geometry.CornerRadius(12f, 12f)
             )
+        }
+    }
+}
+
+@Composable
+private fun CategoryTotalsList(totalsFlow: List<CategoryTotal>) {
+    if (totalsFlow.isEmpty()) {
+        Text("No data for selected range")
+    } else {
+        LazyColumn {
+            items(totalsFlow) { row ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(row.categoryName)
+                    Text("R" + String.format("%.2f", row.total))
+                }
+            }
         }
     }
 }

@@ -1,10 +1,14 @@
 package com.example.budgettrain.feature.dashboard
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.delay
+import com.example.budgettrain.data.dao.CategoryTotal
+import com.example.budgettrain.data.db.DatabaseProvider
+import com.example.budgettrain.data.entity.Expense
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -42,49 +46,74 @@ data class DashboardState(
     val error: String? = null
 )
 
-class DashboardViewModel : ViewModel() {
+class DashboardViewModel(app: Application) : AndroidViewModel(app) {
+    private val db = DatabaseProvider.get(app)
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state
 
     init {
-        // Simulate initial load; replace with repository calls wired to Room DB
         viewModelScope.launch {
-            try {
-                _state.value = _state.value.copy(isLoading = true)
-                delay(600) // shimmer time
-                val sampleGoal = BudgetGoal(minimumGoal = 2000.0, maximumGoal = 5000.0)
-                val total = 3450.0
-                val expenseCount = 23
-                val avg = if (expenseCount > 0) total / expenseCount else 0.0
-                val status = calculateBudgetStatus(total, sampleGoal)
-                val percent = calculateProgressPercentage(total, sampleGoal.maximumGoal)
-                val amountRemaining = (sampleGoal.maximumGoal - total).coerceAtLeast(0.0)
-                val topCat = CategorySpend(1, "Food", 0xFF4CAF50, 1200.0)
-                val recent = RecentExpense(Date(System.currentTimeMillis() - 2 * 60 * 60 * 1000), 95.75)
-                val daily = generateSampleDaily(14)
-                val topCats = listOf(
-                    topCat,
-                    CategorySpend(2, "Transport", 0xFF2196F3, 800.0),
-                    CategorySpend(3, "Entertainment", 0xFFFF9800, 520.0)
-                )
+            _state.value = _state.value.copy(isLoading = true)
+
+            val (startOfMonth, now) = currentMonthRange()
+
+            // Combine expenses in range, category totals for range, and categories (for colors)
+            combine(
+                db.expenseDao().getExpensesInRange(startOfMonth, now),
+                db.expenseDao().getCategoryTotals(startOfMonth, now),
+                db.categoryDao().getAll()
+            ) { expenses, totals, categories ->
+                Triple(expenses, totals, categories)
+            }.collect { (expenses, totals, categories) ->
+                val totalSpent = expenses.sumOf { it.amount }
+                val expenseCount = expenses.size
+                val average = if (expenseCount > 0) totalSpent / expenseCount else 0.0
+
+                // Placeholder: no persisted budget goals yet
+                val goal = BudgetGoal(minimumGoal = 0.0, maximumGoal = 0.0)
+                val status = calculateBudgetStatus(totalSpent, null)
+                val percent = calculateProgressPercentage(totalSpent, goal.maximumGoal)
+                val amountRemaining = (goal.maximumGoal - totalSpent).coerceAtLeast(0.0)
+
+                val recent = expenses.maxByOrNull { it.date }?.let { e ->
+                    RecentExpense(Date(e.date), e.amount)
+                }
+
+                val categoryIdToColor = categories.associate { it.id to it.color }
+
+                val topCats: List<CategorySpend> = totals
+                    .sortedByDescending { it.total }
+                    .take(3)
+                    .map { row: CategoryTotal ->
+                        val color = categoryIdToColor.entries.firstOrNull { it.key == categoryIdForName(row.categoryName, categories.map { c -> c.id to c.name }) }?.value
+                            ?: 0xFF2196F3
+                        CategorySpend(
+                            categoryId = categoryIdForName(row.categoryName, categories.map { c -> c.id to c.name }) ?: -1L,
+                            name = row.categoryName,
+                            color = color,
+                            amount = row.total
+                        )
+                    }
+
+                val topCategory = topCats.firstOrNull()
+
+                val daily = buildDailyTrend(expenses, startOfMonth, now)
+
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    username = "User",
-                    totalSpentThisMonth = total,
+                    totalSpentThisMonth = totalSpent,
                     expenseCountThisMonth = expenseCount,
-                    averageExpenseThisMonth = avg,
-                    budgetGoal = sampleGoal,
+                    averageExpenseThisMonth = average,
+                    budgetGoal = if (goal.maximumGoal > 0.0) goal else null,
                     budgetStatus = status,
                     progressPercent = percent,
                     amountRemainingToMax = amountRemaining,
-                    topCategory = topCat,
+                    topCategory = topCategory,
                     recentExpense = recent,
-                    lastActivityAgo = timeAgo(recent.date),
+                    lastActivityAgo = recent?.let { timeAgo(it.date) } ?: "",
                     dailyTrend = daily,
                     topCategories = topCats
                 )
-            } catch (t: Throwable) {
-                _state.value = _state.value.copy(isLoading = false, error = t.message)
             }
         }
     }
@@ -135,14 +164,40 @@ class DashboardViewModel : ViewModel() {
             }
         }
 
-        private fun generateSampleDaily(days: Int): List<DailyPoint> {
-            val now = Calendar.getInstance()
-            return (days - 1 downTo 0).map { offset ->
-                val cal = now.clone() as Calendar
-                cal.add(Calendar.DAY_OF_YEAR, -offset)
-                val amount = (50..400).random().toDouble()
-                DailyPoint(cal.time, amount)
+        private fun currentMonthRange(): Pair<Long, Long> {
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.DAY_OF_MONTH, 1)
+            cal.set(Calendar.HOUR_OF_DAY, 0)
+            cal.set(Calendar.MINUTE, 0)
+            cal.set(Calendar.SECOND, 0)
+            cal.set(Calendar.MILLISECOND, 0)
+            val start = cal.timeInMillis
+            val now = System.currentTimeMillis()
+            return start to now
+        }
+
+        private fun buildDailyTrend(expenses: List<Expense>, start: Long, end: Long): List<DailyPoint> {
+            val cal = Calendar.getInstance()
+            cal.timeInMillis = start
+            val days = mutableListOf<DailyPoint>()
+            val byDay: Map<String, Double> = expenses.groupBy { e -> dayKey(e.date) }
+                .mapValues { entry -> entry.value.sumOf { it.amount } }
+            while (cal.timeInMillis <= end) {
+                val key = dayKey(cal.timeInMillis)
+                val amount = byDay[key] ?: 0.0
+                days.add(DailyPoint(Date(cal.timeInMillis), amount))
+                cal.add(Calendar.DAY_OF_YEAR, 1)
             }
+            return days
+        }
+
+        private fun dayKey(timeMs: Long): String {
+            val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            return sdf.format(Date(timeMs))
+        }
+
+        private fun categoryIdForName(name: String, pairs: List<Pair<Long, String>>): Long? {
+            return pairs.firstOrNull { it.second == name }?.first
         }
     }
 }

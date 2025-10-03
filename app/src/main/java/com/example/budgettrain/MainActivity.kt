@@ -10,6 +10,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -27,6 +29,8 @@ import com.example.budgettrain.ui.theme.BudgetTrainTheme
 import com.example.budgettrain.feature.dashboard.DashboardScreen
 import com.example.budgettrain.feature.reports.ReportsScreen
 import com.example.budgettrain.feature.goals.BudgetGoalsScreen
+import com.example.budgettrain.feature.expense.AddExpenseScreen
+import com.example.budgettrain.feature.expense.ExpenseListScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,11 +41,21 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val items = listOf(
                     BottomItem.Dashboard,
+                    BottomItem.Expenses,
                     BottomItem.Reports,
                     BottomItem.Goals
                 )
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
+                    floatingActionButton = {
+                        val navBackStackEntry by navController.currentBackStackEntryAsState()
+                        val currentRoute = navBackStackEntry?.destination?.route
+                        if (currentRoute == BottomItem.Expenses.route) {
+                            FloatingActionButton(onClick = { navController.navigate("add_expense") }) {
+                                Icon(Icons.Filled.ReceiptLong, contentDescription = "Add Expense")
+                            }
+                        }
+                    },
                     bottomBar = {
                         NavigationBar {
                             val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -72,14 +86,21 @@ class MainActivity : ComponentActivity() {
                     ) {
                         composable(BottomItem.Dashboard.route) {
                             DashboardScreen(
-                                onAddExpense = { /* intentionally not implemented */ },
+                                onAddExpense = { navController.navigate("add_expense") },
                                 onViewReports = { navController.navigate(BottomItem.Reports.route) },
                                 onManageGoals = { navController.navigate(BottomItem.Goals.route) },
-                                onViewAllExpenses = { /* intentionally not implemented */ }
+                                onViewAllExpenses = { navController.navigate(BottomItem.Expenses.route) }
                             )
                         }
+                        composable(BottomItem.Expenses.route) { ExpenseListScreen() }
                         composable(BottomItem.Reports.route) { ReportsScreen() }
                         composable(BottomItem.Goals.route) { BudgetGoalsScreen() }
+                        composable("add_expense") {
+                            AddExpenseScreen(
+                                onSaved = { navController.popBackStack(); navController.navigate(BottomItem.Expenses.route) },
+                                onViewExpenses = { navController.navigate(BottomItem.Expenses.route) }
+                            )
+                        }
                     }
                 }
             }
@@ -89,6 +110,7 @@ class MainActivity : ComponentActivity() {
 
 private sealed class BottomItem(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     data object Dashboard : BottomItem("dashboard", "Dashboard", Icons.Filled.Home)
+    data object Expenses : BottomItem("expenses", "View Expenses", Icons.Filled.ReceiptLong)
     data object Reports : BottomItem("reports", "Reports", Icons.Filled.Assessment)
     data object Goals : BottomItem("goals", "Goals", Icons.Filled.Flag)
 }
