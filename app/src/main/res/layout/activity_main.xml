@@ -18,35 +18,15 @@
         android:scaleType="fitCenter"
         android:layout_marginBottom="16dp"/>
 
-    <!-- Title -->
-    <TextView
-        android:id="@+id/titleText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Budget Train"
-        android:textSize="28sp"
-        android:textStyle="bold"
-        android:textColor="#00838F"
-        android:layout_marginBottom="4dp"/>
-
-    <!-- Subtitle -->
-    <TextView
-        android:id="@+id/subtitleText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="FOR KEEPING YOUR BUDGETS ON TRACK"
-        android:textSize="12sp"
-        android:textColor="#000000"
-        android:layout_marginBottom="32dp"/>
 
     <!-- Login button -->
     <Button
         android:id="@+id/loginButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="LOG-IN"
+        android:text="@string/log_in"
         android:textAllCaps="true"
-        android:drawableLeft="@android:drawable/ic_menu_myplaces"
+        android:icon="@drawable/ic_login"
         android:backgroundTint="#0097A7"
         android:textColor="@android:color/white"
         android:layout_marginBottom="16dp"/>
@@ -57,7 +37,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:backgroundTint="#0097A7"
-        android:drawableLeft="@android:drawable/ic_input_add"
-        android:text="REGISTER NEW ACCOUNT"
+        android:icon="@android:drawable/ic_menu_add"
+        android:text="@string/register_new_account"
         android:textColor="@android:color/white" />
 </LinearLayout>

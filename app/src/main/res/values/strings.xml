@@ -1,3 +1,8 @@
 <resources>
-    <string name="app_name">BudgetTrain</string>
+    <string name="app_name">Budget Train App</string>
+    <string name="app_name_title">Budget Train</string>
+    <string name="app_tagline">FOR KEEPING YOUR BUDGETS ON TRACK</string>
+    <string name="log_in">LOG-IN</string>
+    <string name="register_new_account">REGISTER</string>
+    <string name="app_logo_description">Budget Train Logo</string>
 </resources>
