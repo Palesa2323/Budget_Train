@@ -7,6 +7,7 @@ import com.example.budgettrain.data.dao.CategoryTotal
 import com.example.budgettrain.data.db.DatabaseProvider
 import com.example.budgettrain.data.entity.Expense
 import com.example.budgettrain.data.entity.Category
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,6 +28,7 @@ class ReportsViewModel(app: Application) : AndroidViewModel(app) {
     private val db = DatabaseProvider.get(app)
     private val _state = MutableStateFlow(ReportsState())
     val state: StateFlow<ReportsState> = _state.asStateFlow()
+    private var loadJob: Job? = null
 
     fun setRange(start: Long, end: Long) {
         _state.update { it.copy(startMillis = start, endMillis = end) }
@@ -39,7 +41,8 @@ class ReportsViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(error = "Invalid range", loading = false) }
             return
         }
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
             try {
                 combine(

@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -43,7 +45,6 @@ fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
     val cal = remember { Calendar.getInstance() }
     var startMillis by remember { mutableStateOf(cal.clone().let { it as Calendar; it.set(Calendar.DAY_OF_MONTH, 1); it.timeInMillis }) }
     var endMillis by remember { mutableStateOf(System.currentTimeMillis()) }
-    vm.setRange(startMillis, endMillis)
     val state = vm.state
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -71,7 +72,25 @@ fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { vm.load() }) { Text("Load Report") }
+                    Button(onClick = {
+                        // Normalize to full-day boundaries and then load
+                        val startCal = Calendar.getInstance().apply {
+                            timeInMillis = startMillis
+                            set(Calendar.HOUR_OF_DAY, 0)
+                            set(Calendar.MINUTE, 0)
+                            set(Calendar.SECOND, 0)
+                            set(Calendar.MILLISECOND, 0)
+                        }
+                        val endCal = Calendar.getInstance().apply {
+                            timeInMillis = endMillis
+                            set(Calendar.HOUR_OF_DAY, 23)
+                            set(Calendar.MINUTE, 59)
+                            set(Calendar.SECOND, 59)
+                            set(Calendar.MILLISECOND, 999)
+                        }
+                        vm.setRange(startCal.timeInMillis, endCal.timeInMillis)
+                        vm.load()
+                    }) { Text("Load Report") }
                 }
             }
         }
@@ -80,15 +99,19 @@ fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
 
         Card(elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column(Modifier.weight(1f)) {
-                        Text("R 2,350.00", style = MaterialTheme.typography.titleLarge, color = Color(0xFF00BCD4))
-                        Text("70% Overall Budget Spent", style = MaterialTheme.typography.bodySmall)
-                    }
-                    PaydayCard(days = 10)
+                val total = state.value.expenses.sumOf { it.amount }
+                val count = state.value.expenses.size
+                val currency = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "ZA")).apply {
+                    currency = java.util.Currency.getInstance("ZAR")
                 }
+                Text(currency.format(total), style = MaterialTheme.typography.titleLarge, color = Color(0xFF00BCD4))
+                Text("$count expenses in range", style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(12.dp))
-                SimpleBars()
+                DailyLineChart(
+                    expenses = state.value.expenses,
+                    start = state.value.startMillis,
+                    end = state.value.endMillis
+                )
             }
         }
 
@@ -117,23 +140,75 @@ private fun PaydayCard(days: Int) {
 }
 
 @Composable
-private fun SimpleBars() {
-    val values = listOf(40, 70, 50, 65, 80, 55, 75, 45)
-    val labels = listOf("JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG")
-    Canvas(modifier = Modifier.fillMaxWidth().height(180.dp).padding(horizontal = 8.dp)) {
-        val barWidth = size.width / (values.size * 2)
-        val maxVal = (values.maxOrNull() ?: 1).toFloat()
-        values.forEachIndexed { index, v ->
-            val left = index * 2 * barWidth + barWidth / 2
-            val barHeight = (v / maxVal) * (size.height * 0.7f)
-            drawRoundRect(
-                color = Color(0xFF00BCD4),
-                topLeft = Offset(left, size.height - barHeight),
-                size = Size(barWidth, barHeight),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(12f, 12f)
-            )
+private fun DailyLineChart(expenses: List<com.example.budgettrain.data.entity.Expense>, start: Long, end: Long) {
+    if (expenses.isEmpty() || end <= start) {
+        Text("No data to chart")
+        return
+    }
+    val sdf = remember { java.text.SimpleDateFormat("dd MMM", java.util.Locale.getDefault()) }
+    val days = remember(start, end, expenses) {
+        val byDay = expenses.groupBy { dayKey(it.date) }.mapValues { it.value.sumOf { e -> e.amount } }
+        val result = mutableListOf<Pair<Long, Double>>()
+        val cal = java.util.Calendar.getInstance().apply {
+            timeInMillis = start
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        while (cal.timeInMillis <= end) {
+            val key = dayKey(cal.timeInMillis)
+            result.add(cal.timeInMillis to (byDay[key] ?: 0.0))
+            cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+        }
+        result
+    }
+    val maxVal = (days.maxOfOrNull { it.second } ?: 0.0).coerceAtLeast(1.0)
+    Canvas(modifier = Modifier.fillMaxWidth().height(220.dp).padding(horizontal = 8.dp)) {
+        // Padding inside canvas for axes
+        val leftPad = 48f
+        val bottomPad = 24f
+        val topPad = 8f
+        val rightPad = 8f
+        val chartWidth = size.width - leftPad - rightPad
+        val chartHeight = size.height - topPad - bottomPad
+
+        // Axes
+        drawLine(Color.LightGray, Offset(leftPad, topPad), Offset(leftPad, topPad + chartHeight))
+        drawLine(Color.LightGray, Offset(leftPad, topPad + chartHeight), Offset(leftPad + chartWidth, topPad + chartHeight))
+
+        // Y ticks (0, 50%, max)
+        val y0 = topPad + chartHeight
+        val yMid = topPad + chartHeight * 0.5f
+        val yMax = topPad
+        drawLine(Color(0xFFE0E0E0), Offset(leftPad, yMid), Offset(leftPad + chartWidth, yMid))
+
+        // X positions
+        val stepX = if (days.size > 1) chartWidth / (days.size - 1) else chartWidth
+
+        // Line path
+        val path = Path()
+        days.forEachIndexed { idx, pair ->
+            val value = pair.second.toFloat()
+            val px = leftPad + idx * stepX
+            val py = y0 - (value / maxVal.toFloat()) * chartHeight
+            if (idx == 0) path.moveTo(px, py) else path.lineTo(px, py)
+        }
+        drawPath(path, color = Color(0xFF00BCD4), style = Stroke(width = 4f))
+
+        // Points
+        days.forEachIndexed { idx, pair ->
+            val value = pair.second.toFloat()
+            val px = leftPad + idx * stepX
+            val py = y0 - (value / maxVal.toFloat()) * chartHeight
+            drawCircle(Color(0xFF00BCD4), radius = 4f, center = Offset(px, py))
         }
     }
+}
+
+private fun dayKey(timeMs: Long): String {
+    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+    return sdf.format(java.util.Date(timeMs))
 }
 
 @Composable
