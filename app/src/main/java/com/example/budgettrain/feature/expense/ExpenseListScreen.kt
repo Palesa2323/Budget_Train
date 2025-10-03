@@ -34,7 +34,9 @@ import java.util.Locale
 @Composable
 fun ExpenseListScreen(vm: ExpenseViewModel = viewModel()) {
     val state by vm.state.collectAsState()
-    val currency = NumberFormat.getCurrencyInstance(Locale.getDefault())
+    val currency = NumberFormat.getCurrencyInstance(Locale("en", "ZA")).apply {
+        currency = java.util.Currency.getInstance("ZAR")
+    }
     val sdfDate = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     val sdfTime = SimpleDateFormat("HH:mm", Locale.getDefault())
 

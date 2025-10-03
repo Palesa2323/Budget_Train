@@ -82,7 +82,7 @@ fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
             Column(Modifier.padding(16.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Column(Modifier.weight(1f)) {
-                        Text("R2350.00", style = MaterialTheme.typography.titleLarge, color = Color(0xFF00BCD4))
+                        Text("R 2,350.00", style = MaterialTheme.typography.titleLarge, color = Color(0xFF00BCD4))
                         Text("70% Overall Budget Spent", style = MaterialTheme.typography.bodySmall)
                     }
                     PaydayCard(days = 10)
@@ -141,11 +141,14 @@ private fun CategoryTotalsList(totalsFlow: List<CategoryTotal>) {
     if (totalsFlow.isEmpty()) {
         Text("No data for selected range")
     } else {
+        val currency = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "ZA")).apply {
+            currency = java.util.Currency.getInstance("ZAR")
+        }
         LazyColumn {
             items(totalsFlow) { row ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(row.categoryName)
-                    Text("R" + String.format("%.2f", row.total))
+                    Text(currency.format(row.total))
                 }
             }
         }

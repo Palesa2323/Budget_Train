@@ -84,14 +84,7 @@ class MainActivity : ComponentActivity() {
                         startDestination = BottomItem.Dashboard.route,
                         modifier = Modifier.padding(innerPadding)
                     ) {
-                        composable(BottomItem.Dashboard.route) {
-                            DashboardScreen(
-                                onAddExpense = { navController.navigate("add_expense") },
-                                onViewReports = { navController.navigate(BottomItem.Reports.route) },
-                                onManageGoals = { navController.navigate(BottomItem.Goals.route) },
-                                onViewAllExpenses = { navController.navigate(BottomItem.Expenses.route) }
-                            )
-                        }
+                        composable(BottomItem.Dashboard.route) { DashboardScreen() }
                         composable(BottomItem.Expenses.route) { ExpenseListScreen() }
                         composable(BottomItem.Reports.route) { ReportsScreen() }
                         composable(BottomItem.Goals.route) { BudgetGoalsScreen() }

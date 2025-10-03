@@ -47,10 +47,6 @@ import java.util.Locale
 
 @Composable
 fun DashboardScreen(
-    onAddExpense: () -> Unit,
-    onViewReports: () -> Unit,
-    onManageGoals: () -> Unit,
-    onViewAllExpenses: () -> Unit,
     viewModel: DashboardViewModel = viewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -65,19 +61,17 @@ fun DashboardScreen(
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = "Budget Goals", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(12.dp))
-        TipsCard(onAddBudgetGoal = onManageGoals)
+        TipsCard()
         Spacer(modifier = Modifier.height(16.dp))
         HeaderSection(username = state.username, date = state.currentDateFormatted, monthLabel = state.currentMonthLabel)
         Spacer(modifier = Modifier.height(12.dp))
         BudgetOverviewCard(state)
         Spacer(modifier = Modifier.height(12.dp))
-        QuickStatsGrid(state, onAddExpense)
+        QuickStatsGrid(state)
         Spacer(modifier = Modifier.height(12.dp))
-        TrendSection(state, onViewReports)
+        TrendSection(state)
         Spacer(modifier = Modifier.height(12.dp))
         TopCategoriesSection(state)
-        Spacer(modifier = Modifier.height(12.dp))
-        ActionsRow(onViewAllExpenses, onViewReports, onManageGoals)
     }
 }
 
@@ -92,7 +86,9 @@ private fun HeaderSection(username: String, date: String, monthLabel: String) {
 
 @Composable
 private fun BudgetOverviewCard(state: DashboardState) {
-    val currency = NumberFormat.getCurrencyInstance(Locale.getDefault())
+    val currency = NumberFormat.getCurrencyInstance(Locale("en", "ZA")).apply {
+        currency = java.util.Currency.getInstance("ZAR")
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -138,7 +134,7 @@ private fun BudgetOverviewCard(state: DashboardState) {
 }
 
 @Composable
-private fun QuickStatsGrid(state: DashboardState, onAddExpense: () -> Unit) {
+private fun QuickStatsGrid(state: DashboardState) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(modifier = Modifier.weight(1f), elevation = CardDefaults.cardElevation(4.dp)) {
             Column(Modifier.padding(16.dp)) {
@@ -208,14 +204,12 @@ private fun QuickStatsGrid(state: DashboardState, onAddExpense: () -> Unit) {
                 Text("Recent Activity", style = MaterialTheme.typography.titleSmall)
                 if (state.isLoading) {
                     SkeletonBlock(modifier = Modifier.fillMaxWidth().height(14.dp))
-                } else {
+                    } else {
                     val recent = state.recentExpense
                     if (recent == null) {
                         Text("No expenses yet")
                     } else {
                         Text("${formatCurrency(recent.amount)} • ${state.lastActivityAgo}")
-                        Spacer(Modifier.height(8.dp))
-                        Button(onClick = onAddExpense) { Text("Add Expense") }
                     }
                 }
             }
@@ -224,15 +218,14 @@ private fun QuickStatsGrid(state: DashboardState, onAddExpense: () -> Unit) {
 }
 
 @Composable
-private fun TrendSection(state: DashboardState, onViewReports: () -> Unit) {
+private fun TrendSection(state: DashboardState) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
                 Text("Spending Trend", style = MaterialTheme.typography.titleSmall)
-                Button(onClick = onViewReports) { Text("View Reports") }
             }
             Spacer(Modifier.height(8.dp))
             if (state.isLoading) {
@@ -317,15 +310,11 @@ private fun TopCategoriesSection(state: DashboardState) {
 }
 
 @Composable
-private fun ActionsRow(onViewAll: () -> Unit, onViewReports: () -> Unit, onManageGoals: () -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = onViewAll, modifier = Modifier.weight(1f)) { Text("View All Expenses") }
-        Button(onClick = onViewReports, modifier = Modifier.weight(1f)) { Text("Reports") }
-        Button(onClick = onManageGoals, modifier = Modifier.weight(1f)) { Text("Manage Goals") }
-    }
-}
+// Removed extra navigation buttons; navigation is available via bottom bar
 
-private fun formatCurrency(value: Double): String = NumberFormat.getCurrencyInstance(Locale.getDefault()).format(value)
+private fun formatCurrency(value: Double): String = NumberFormat.getCurrencyInstance(Locale("en", "ZA")).apply {
+    currency = java.util.Currency.getInstance("ZAR")
+}.format(value)
 
 private fun statusLabel(status: BudgetStatus): String = when (status) {
     BudgetStatus.NO_GOALS -> "No Goals Set"
@@ -368,7 +357,7 @@ private fun BrandHeader() {
 }
 
 @Composable
-private fun TipsCard(onAddBudgetGoal: () -> Unit) {
+private fun TipsCard() {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
@@ -388,7 +377,7 @@ private fun TipsCard(onAddBudgetGoal: () -> Unit) {
             Divider(color = Color(0xFF90CAF9), modifier = Modifier.padding(vertical = 12.dp))
             TipRow(title = "August Saving Goal", value = "Save R2000.00 in\nFixed Deposit")
             Spacer(Modifier.height(16.dp))
-            Button(onClick = onAddBudgetGoal) { Text("Add Budget Goal") }
+            // Button removed; use bottom navigation to manage goals
         }
     }
 }
