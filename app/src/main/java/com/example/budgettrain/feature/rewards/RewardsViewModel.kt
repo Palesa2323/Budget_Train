@@ -776,4 +776,29 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
             completed to total
         }
     }
+    
+    // Test function to verify challenges are working
+    fun testChallenges(): String {
+        val challenges = _challenges.value
+        val activeChallenges = challenges.filter { it.isActive }
+        val completedChallenges = challenges.filter { it.isCompleted }
+        
+        return buildString {
+            appendLine("=== CHALLENGE TEST RESULTS ===")
+            appendLine("Total challenges: ${challenges.size}")
+            appendLine("Active challenges: ${activeChallenges.size}")
+            appendLine("Completed challenges: ${completedChallenges.size}")
+            appendLine()
+            appendLine("Active Challenge Details:")
+            activeChallenges.forEach { challenge ->
+                appendLine("- ${challenge.title}: ${challenge.currentValue}/${challenge.targetValue} (${challenge.timeFrame})")
+            }
+            appendLine()
+            appendLine("Progress Data:")
+            appendLine("- Daily Streak: ${_progress.value.dailyStreak}")
+            appendLine("- Expenses Tracked: ${_progress.value.expensesTracked}")
+            appendLine("- Weekly Savings: R${_progress.value.weeklySavings}")
+            appendLine("- Low Spending Days: ${_progress.value.lowSpendingDays}")
+        }
+    }
 }

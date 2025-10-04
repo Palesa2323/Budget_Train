@@ -92,6 +92,35 @@ fun RewardsScreen(viewModel: RewardsViewModel = viewModel()) {
         item {
             ChallengeSection(challenges = challenges)
         }
+        
+        // Test button for debugging challenges
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.cardElevation(2.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "Debug Challenge Test",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFF9800)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            val testResult = viewModel.testChallenges()
+                            println("=== CHALLENGE TEST ===")
+                            println(testResult)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800))
+                    ) {
+                        Text("Test Challenges", color = Color.White)
+                    }
+                }
+            }
+        }
 
         item {
             Text(
@@ -102,8 +131,10 @@ fun RewardsScreen(viewModel: RewardsViewModel = viewModel()) {
             )
         }
 
-        items(rewards.size) { index ->
-            EnhancedRewardCard(reward = rewards[index])
+        // Filter out completed rewards to keep the interface clean
+        val availableRewards = rewards.filter { !it.isEarned }
+        items(availableRewards.size) { index ->
+            EnhancedRewardCard(reward = availableRewards[index])
         }
 
         item {
@@ -115,8 +146,23 @@ fun RewardsScreen(viewModel: RewardsViewModel = viewModel()) {
             )
         }
 
-        items(badges.size) { index ->
-            EnhancedBadgeCard(badge = badges[index])
+        // Filter out completed badges to keep the interface clean
+        val availableBadges = badges.filter { !it.isEarned }
+        items(availableBadges.size) { index ->
+            EnhancedBadgeCard(badge = availableBadges[index])
+        }
+        
+        // Show completed achievements section
+        val completedRewards = rewards.filter { it.isEarned }
+        val completedBadges = badges.filter { it.isEarned }
+        
+        if (completedRewards.isNotEmpty() || completedBadges.isNotEmpty()) {
+            item {
+                CompletedAchievementsSection(
+                    completedRewards = completedRewards,
+                    completedBadges = completedBadges
+                )
+            }
         }
         
         item {
@@ -477,10 +523,10 @@ private fun getBadgeIcon(iconType: BadgeIconType): ImageVector {
 
 @Composable
 private fun ChallengeProgressOverview(challenges: List<Challenge>) {
-    val activeChallenges = challenges.filter { it.isActive }
-    val completedChallenges = activeChallenges.count { it.isCompleted }
-    val totalChallenges = activeChallenges.size
-    val overallProgress = if (totalChallenges > 0) (completedChallenges.toFloat() / totalChallenges) else 0f
+    val activeChallenges = challenges.filter { it.isActive && !it.isCompleted }
+    val completedChallenges = challenges.filter { it.isActive && it.isCompleted }
+    val totalChallenges = activeChallenges.size + completedChallenges.size
+    val overallProgress = if (totalChallenges > 0) (completedChallenges.size.toFloat() / totalChallenges) else 0f
     
     // Group by time frame for detailed progress
     val dailyChallenges = activeChallenges.filter { it.timeFrame == ChallengeTimeFrame.DAILY }
@@ -507,7 +553,7 @@ private fun ChallengeProgressOverview(challenges: List<Challenge>) {
                     color = Color(0xFF333333)
                 )
                 Text(
-                    "$completedChallenges/$totalChallenges completed",
+                    "${completedChallenges.size}/${totalChallenges} completed",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF2196F3)
@@ -878,7 +924,7 @@ private fun ChallengeSection(challenges: List<Challenge>) {
             )
             
             // Challenge stats
-            val completedCount = challenges.count { it.isCompleted }
+            val completedCount = challenges.count { it.isActive && it.isCompleted }
             val totalCount = challenges.count { it.isActive }
             Text(
                 "$completedCount/$totalCount completed",
@@ -890,7 +936,7 @@ private fun ChallengeSection(challenges: List<Challenge>) {
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        val activeChallenges = challenges.filter { it.isActive }
+        val activeChallenges = challenges.filter { it.isActive && !it.isCompleted }
         println("DEBUG: ChallengeSection - total challenges: ${challenges.size}, active challenges: ${activeChallenges.size}")
         if (activeChallenges.isEmpty()) {
             Box(
@@ -1229,4 +1275,209 @@ private fun EnhancedChallengeCard(challenge: Challenge, groupColor: Color) {
 @Composable
 private fun ChallengeCard(challenge: Challenge) {
     EnhancedChallengeCard(challenge = challenge, groupColor = Color(0xFF2196F3))
+}
+
+@Composable
+private fun CompletedAchievementsSection(
+    completedRewards: List<Reward>,
+    completedBadges: List<Badge>
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header with expand/collapse button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Completed",
+                        tint = Color(0xFF4CAF50),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        "Completed Achievements",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4CAF50)
+                    )
+                }
+                
+                IconButton(
+                    onClick = { isExpanded = !isExpanded }
+                ) {
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (isExpanded) "Collapse" else "Expand",
+                        tint = Color(0xFF4CAF50)
+                    )
+                }
+            }
+            
+            // Summary text
+            Text(
+                "You've earned ${completedRewards.size} rewards and ${completedBadges.size} badges!",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF666666),
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            
+            // Expanded content
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Completed Rewards
+                if (completedRewards.isNotEmpty()) {
+                    Text(
+                        "Completed Rewards",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF333333),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    
+                    completedRewards.forEach { reward ->
+                        CompletedRewardCard(reward = reward)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+                
+                // Completed Badges
+                if (completedBadges.isNotEmpty()) {
+                    if (completedRewards.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    
+                    Text(
+                        "Completed Badges",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF333333),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    
+                    completedBadges.forEach { badge ->
+                        CompletedBadgeCard(badge = badge)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompletedRewardCard(reward: Reward) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(1.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = getRewardIcon(reward.iconType),
+                contentDescription = "Reward",
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier.size(20.dp)
+            )
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = reward.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF333333)
+                )
+                Text(
+                    text = reward.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF666666)
+                )
+            }
+            
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Completed",
+                    tint = Color(0xFF4CAF50),
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "${reward.pointsValue} pts",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF4CAF50)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompletedBadgeCard(badge: Badge) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(1.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = getBadgeIcon(badge.iconType),
+                contentDescription = "Badge",
+                tint = Color(0xFFFF9800),
+                modifier = Modifier.size(20.dp)
+            )
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = badge.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF333333)
+                )
+                Text(
+                    text = badge.criteria,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF666666)
+                )
+                if (badge.earnedDate != null) {
+                    Text(
+                        text = "Earned ${SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(badge.earnedDate)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF4CAF50),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            
+            Icon(
+                imageVector = Icons.Default.CheckCircle,
+                contentDescription = "Completed",
+                tint = Color(0xFFFF9800),
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
 }
