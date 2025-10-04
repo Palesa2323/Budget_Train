@@ -9,6 +9,7 @@ import com.example.budgettrain.data.entity.Expense
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -24,6 +25,8 @@ data class CategorySpend(val categoryId: Long, val name: String, val color: Long
 data class RecentExpense(val date: Date, val amount: Double)
 
 data class DailyPoint(val date: Date, val amount: Double)
+
+data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 data class DashboardState(
     val isLoading: Boolean = true,
@@ -59,18 +62,34 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
 
+            // Load all expenses instead of just current month
+            // We'll still calculate current month stats separately
             val (startOfMonth, now) = currentMonthRange()
 
-            // Combine expenses in range, category totals for range, and categories (for colors)
+            // Combine all expenses, current month expenses, category totals for all time, and categories
             combine(
+                db.expenseDao().getAllExpensesWithCategory().map { it.map { expenseWithCategory ->
+                    Expense(
+                        id = expenseWithCategory.id,
+                        userId = expenseWithCategory.userId,
+                        categoryId = expenseWithCategory.categoryId,
+                        amount = expenseWithCategory.amount,
+                        date = expenseWithCategory.date,
+                        startTime = expenseWithCategory.startTime,
+                        endTime = expenseWithCategory.endTime,
+                        description = expenseWithCategory.description,
+                        imagePath = expenseWithCategory.imagePath
+                    )
+                }},
                 db.expenseDao().getExpensesInRange(startOfMonth, now),
                 db.expenseDao().getCategoryTotals(startOfMonth, now),
                 db.categoryDao().getAll()
-            ) { expenses, totals, categories ->
-                Triple(expenses, totals, categories)
-            }.collect { (expenses, totals, categories) ->
-                val totalSpent = expenses.sumOf { it.amount }
-                val expenseCount = expenses.size
+            ) { allExpenses, currentMonthExpenses, totals, categories ->
+                Quadruple(allExpenses, currentMonthExpenses, totals, categories)
+            }.collect { (allExpenses, currentMonthExpenses, totals, categories) ->
+                // Use all expenses for the main display
+                val totalSpent = allExpenses.sumOf { it.amount }
+                val expenseCount = allExpenses.size
                 val average = if (expenseCount > 0) totalSpent / expenseCount else 0.0
 
                 // Get budget goals from SharedPreferences for now
@@ -82,36 +101,39 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 val percent = calculateProgressPercentage(totalSpent, goal.maximumGoal)
                 val amountRemaining = (goal.maximumGoal - totalSpent).coerceAtLeast(0.0)
 
-                val recent = expenses.maxByOrNull { it.date }?.let { e ->
+                val recent = allExpenses.maxByOrNull { it.date }?.let { e ->
                     RecentExpense(Date(e.date), e.amount)
                 }
 
                 val categoryIdToColor = categories.associate { it.id to it.color }
 
-                val topCats: List<CategorySpend> = totals
-                    .sortedByDescending { it.total }
-                    .take(3)
-                    .map { row: CategoryTotal ->
-                        val color = categoryIdToColor.entries.firstOrNull { it.key == categoryIdForName(row.categoryName, categories.map { c -> c.id to c.name }) }?.value
-                            ?: 0xFF2196F3
+                // Calculate category totals from all expenses instead of just current month
+                val allExpensesByCategory = allExpenses.groupBy { it.categoryId }
+                val topCats: List<CategorySpend> = allExpensesByCategory
+                    .map { (categoryId, expenses) ->
+                        val category = categories.find { it.id == categoryId }
+                        val total = expenses.sumOf { it.amount }
                         CategorySpend(
-                            categoryId = categoryIdForName(row.categoryName, categories.map { c -> c.id to c.name }) ?: -1L,
-                            name = row.categoryName,
-                            color = color,
-                            amount = row.total
+                            categoryId = categoryId,
+                            name = category?.name ?: "Unknown",
+                            color = category?.color ?: 0xFF2196F3,
+                            amount = total
                         )
                     }
+                    .sortedByDescending { it.amount }
+                    .take(3)
 
                 val topCategory = topCats.firstOrNull()
 
-                val daily = buildDailyTrend(expenses, startOfMonth, now)
+                // Use all expenses for daily trend, but limit to reasonable range
+                val daily = buildDailyTrend(allExpenses, startOfMonth, now)
 
                 _state.value = _state.value.copy(
                     isLoading = false,
                     username = "User", // TODO: Get from user preferences or authentication
-                    totalSpentThisMonth = totalSpent,
-                    expenseCountThisMonth = expenseCount,
-                    averageExpenseThisMonth = average,
+                    totalSpentThisMonth = totalSpent, // Now shows all-time total
+                    expenseCountThisMonth = expenseCount, // Now shows all-time count
+                    averageExpenseThisMonth = average, // Now shows all-time average
                     budgetGoal = if (goal.maximumGoal > 0.0) goal else null,
                     budgetStatus = status,
                     progressPercent = percent,

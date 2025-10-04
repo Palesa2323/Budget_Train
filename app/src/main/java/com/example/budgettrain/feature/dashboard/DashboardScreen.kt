@@ -326,7 +326,7 @@ private fun QuickStatsGrid(state: DashboardState) {
         ) {
             Column(Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("This Month", style = MaterialTheme.typography.titleSmall)
+                    Text("All Expenses", style = MaterialTheme.typography.titleSmall)
                     Spacer(modifier = Modifier.weight(1f))
                     Text("📊", style = MaterialTheme.typography.titleMedium)
                 }
@@ -340,7 +340,7 @@ private fun QuickStatsGrid(state: DashboardState) {
                 } else {
                     Text("${state.expenseCountThisMonth} expenses", style = MaterialTheme.typography.bodyMedium)
                     Text("Avg ${formatCurrency(state.averageExpenseThisMonth)}", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                    Text("${state.daysRemainingInMonth} days left", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text("All time total", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
             }
         }
