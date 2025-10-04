@@ -66,12 +66,18 @@ class MainActivity : ComponentActivity() {
                                     label = { Text(item.label) },
                                     selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
                                     onClick = {
-                                        if (currentDestination?.route != item.route) {
-                                            navController.navigate(item.route) {
-                                                popUpTo(navController.graph.startDestinationId) { saveState = true }
-                                                launchSingleTop = true
-                                                restoreState = true
+                                        navController.navigate(item.route) {
+                                            // Pop up to the start destination of the graph to
+                                            // avoid building up a large stack of destinations
+                                            // on the back stack as users select items
+                                            popUpTo(navController.graph.startDestinationId) {
+                                                inclusive = false
                                             }
+                                            // Avoid multiple copies of the same destination when
+                                            // reselecting the same item
+                                            launchSingleTop = true
+                                            // Restore state when reselecting a previously selected item
+                                            restoreState = true
                                         }
                                     }
                                 )
@@ -84,7 +90,13 @@ class MainActivity : ComponentActivity() {
                         startDestination = BottomItem.Dashboard.route,
                         modifier = Modifier.padding(innerPadding)
                     ) {
-                        composable(BottomItem.Dashboard.route) { DashboardScreen() }
+                        composable(BottomItem.Dashboard.route) { 
+                            DashboardScreen(
+                                onNavigateToAddExpense = { navController.navigate("add_expense") },
+                                onNavigateToReports = { navController.navigate(BottomItem.Reports.route) },
+                                onNavigateToGoals = { navController.navigate(BottomItem.Goals.route) }
+                            ) 
+                        }
                         composable(BottomItem.Expenses.route) { ExpenseListScreen() }
                         composable(BottomItem.Reports.route) { ReportsScreen() }
                         composable(BottomItem.Goals.route) { BudgetGoalsScreen() }

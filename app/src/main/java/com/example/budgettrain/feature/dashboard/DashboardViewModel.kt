@@ -52,6 +52,10 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<DashboardState> = _state
 
     init {
+        loadData()
+    }
+
+    fun loadData() {
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true)
 
@@ -69,9 +73,12 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 val expenseCount = expenses.size
                 val average = if (expenseCount > 0) totalSpent / expenseCount else 0.0
 
-                // Placeholder: no persisted budget goals yet
-                val goal = BudgetGoal(minimumGoal = 0.0, maximumGoal = 0.0)
-                val status = calculateBudgetStatus(totalSpent, null)
+                // Get budget goals from SharedPreferences for now
+                val prefs = getApplication<Application>().getSharedPreferences("budget_goals", android.content.Context.MODE_PRIVATE)
+                val minGoal = prefs.getFloat("min_goal", 1000f).toDouble()
+                val maxGoal = prefs.getFloat("max_goal", 5000f).toDouble()
+                val goal = BudgetGoal(minimumGoal = minGoal, maximumGoal = maxGoal)
+                val status = calculateBudgetStatus(totalSpent, goal)
                 val percent = calculateProgressPercentage(totalSpent, goal.maximumGoal)
                 val amountRemaining = (goal.maximumGoal - totalSpent).coerceAtLeast(0.0)
 
@@ -101,6 +108,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
                 _state.value = _state.value.copy(
                     isLoading = false,
+                    username = "User", // TODO: Get from user preferences or authentication
                     totalSpentThisMonth = totalSpent,
                     expenseCountThisMonth = expenseCount,
                     averageExpenseThisMonth = average,
