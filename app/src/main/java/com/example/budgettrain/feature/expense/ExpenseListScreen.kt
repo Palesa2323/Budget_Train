@@ -37,6 +37,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 
 @Composable
 fun ExpenseListScreen(vm: ExpenseViewModel = viewModel()) {
@@ -50,6 +54,8 @@ fun ExpenseListScreen(vm: ExpenseViewModel = viewModel()) {
     val sdfRange = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
     var startDate by remember { mutableStateOf<Long?>(null) }
     var endDate by remember { mutableStateOf<Long?>(null) }
+    var showImageViewer by remember { mutableStateOf(false) }
+    var selectedImagePath by remember { mutableStateOf("") }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("All Expenses", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -118,6 +124,19 @@ fun ExpenseListScreen(vm: ExpenseViewModel = viewModel()) {
                                 )
                             }
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                if (!row.imagePath.isNullOrBlank()) {
+                                    IconButton(
+                                        onClick = {
+                                            selectedImagePath = row.imagePath
+                                            showImageViewer = true
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Visibility,
+                                            contentDescription = "View Image"
+                                        )
+                                    }
+                                }
                                 OutlinedButton(onClick = { vm.deleteExpense(row.id) }) { Text("Delete") }
                             }
                         }
@@ -125,6 +144,14 @@ fun ExpenseListScreen(vm: ExpenseViewModel = viewModel()) {
                 }
             }
         }
+    }
+    
+    // Image viewer dialog
+    if (showImageViewer) {
+        ImageViewerDialog(
+            imagePath = selectedImagePath,
+            onDismiss = { showImageViewer = false }
+        )
     }
 }
 
