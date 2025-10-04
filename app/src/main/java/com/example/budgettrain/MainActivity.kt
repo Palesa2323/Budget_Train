@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -31,6 +32,7 @@ import com.example.budgettrain.feature.reports.ReportsScreen
 import com.example.budgettrain.feature.goals.BudgetGoalsScreen
 import com.example.budgettrain.feature.expense.AddExpenseScreen
 import com.example.budgettrain.feature.expense.ExpenseListScreen
+import com.example.budgettrain.feature.rewards.RewardsScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,7 +45,8 @@ class MainActivity : ComponentActivity() {
                     BottomItem.Dashboard,
                     BottomItem.Expenses,
                     BottomItem.Reports,
-                    BottomItem.Goals
+                    BottomItem.Goals,
+                    BottomItem.Rewards
                 )
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -100,6 +103,8 @@ class MainActivity : ComponentActivity() {
                         composable(BottomItem.Expenses.route) { ExpenseListScreen() }
                         composable(BottomItem.Reports.route) { ReportsScreen() }
                         composable(BottomItem.Goals.route) { BudgetGoalsScreen() }
+                        composable(BottomItem.Rewards.route) { RewardsScreen() }
+
                         composable("add_expense") {
                             AddExpenseScreen(
                                 onSaved = { navController.popBackStack(); navController.navigate(BottomItem.Expenses.route) },
@@ -118,6 +123,9 @@ private sealed class BottomItem(val route: String, val label: String, val icon: 
     data object Expenses : BottomItem("expenses", "View Expenses", Icons.Filled.ReceiptLong)
     data object Reports : BottomItem("reports", "Reports", Icons.Filled.Assessment)
     data object Goals : BottomItem("goals", "Goals", Icons.Filled.Flag)
+
+    data object Rewards : BottomItem("rewards", "Rewards", Icons.Filled.Star)
+
 }
 
  
