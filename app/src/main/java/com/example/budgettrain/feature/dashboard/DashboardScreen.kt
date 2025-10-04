@@ -850,49 +850,283 @@ private fun calculateTrendDirection(dailyTrend: List<DailyPoint>): Float {
 }
 
 // Data classes for tips
-data class TipInfo(val title: String, val value: String, val icon: String = "💡")
+data class TipInfo(val title: String, val value: String, val icon: String = "💡", val priority: Int = 1)
 data class PersonalizedTips(val mainTip: String, val additionalTips: List<TipInfo> = emptyList())
+
+// Enhanced tip categories for better organization
+enum class TipCategory {
+    BUDGET_STATUS, SPENDING_PATTERNS, PREDICTIONS, CATEGORY_INSIGHTS, 
+    BEHAVIORAL, GOALS, SAVINGS, ALERTS
+}
 
 // Generate personalized tips based on user's spending patterns
 @Composable
 private fun generatePersonalizedTips(state: DashboardState): PersonalizedTips {
     val tips = mutableListOf<TipInfo>()
     
-    // Main tip based on budget status
-    val mainTip = when (state.budgetStatus) {
-        BudgetStatus.NO_GOALS -> "Set up your budget goals to start tracking your spending effectively. Even small goals can make a big difference!"
-        BudgetStatus.UNDER_MINIMUM -> "Great job staying under budget! Consider increasing your savings rate or investing the extra money."
-        BudgetStatus.ON_TRACK_LOW -> "You're doing well with your budget! Keep up the good work and consider setting higher savings goals."
-        BudgetStatus.ON_TRACK_HIGH -> "You're approaching your budget limit. Try to reduce discretionary spending for the rest of the month."
-        BudgetStatus.OVER_BUDGET -> "You've exceeded your budget. Review your recent expenses and cut back on non-essential spending."
-    }
+    // 1. BUDGET STATUS TIPS (Main tip)
+    val mainTip = generateBudgetStatusTip(state)
     
-    // Additional tips based on spending patterns
-    if (state.expenseCountThisMonth == 0) {
-        tips.add(TipInfo("Start Tracking", "Begin logging your expenses to build better financial habits", "📝"))
-    } else if (state.expenseCountThisMonth < 5) {
-        tips.add(TipInfo("Track More", "Log all your expenses for better insights into your spending patterns", "📊"))
-    }
+    // 2. PREDICTIVE ANALYTICS TIPS
+    tips.addAll(generatePredictiveTips(state))
     
-    if (state.averageExpenseThisMonth > 500) {
-        tips.add(TipInfo("Review Large Expenses", "Consider if large purchases align with your financial goals", "🔍"))
-    }
+    // 3. SPENDING PATTERN TIPS
+    tips.addAll(generateSpendingPatternTips(state))
     
-    if (state.topCategories.isNotEmpty()) {
-        val topCategory = state.topCategories.first()
-        val formattedAmount = formatCurrencyNonComposable(topCategory.amount)
-        tips.add(TipInfo("Top Spending", "Your biggest expense is ${topCategory.name} ($formattedAmount)", "🏆"))
+    // 4. CATEGORY INTELLIGENCE TIPS
+    tips.addAll(generateCategoryTips(state))
+    
+    // 5. BEHAVIORAL INSIGHTS TIPS
+    tips.addAll(generateBehavioralTips(state))
+    
+    // 6. SAVINGS OPPORTUNITY TIPS
+    tips.addAll(generateSavingsTips(state))
+    
+    // 7. ALERT TIPS
+    tips.addAll(generateAlertTips(state))
+    
+    // Sort tips by priority and limit to most important ones
+    val sortedTips = tips.sortedBy { it.priority }.take(6)
+    
+    return PersonalizedTips(mainTip, sortedTips)
+}
+
+// 1. Budget Status Intelligence
+private fun generateBudgetStatusTip(state: DashboardState): String {
+    return when (state.budgetStatus) {
+        BudgetStatus.NO_GOALS -> "🎯 Set up your budget goals to start tracking your spending effectively. Even small goals can make a big difference!"
+        BudgetStatus.UNDER_MINIMUM -> "🎉 Great job staying under budget! Consider increasing your savings rate or investing the extra money."
+        BudgetStatus.ON_TRACK_LOW -> "👍 You're doing well with your budget! Keep up the good work and consider setting higher savings goals."
+        BudgetStatus.ON_TRACK_HIGH -> "⚠️ You're approaching your budget limit. Try to reduce discretionary spending for the rest of the month."
+        BudgetStatus.OVER_BUDGET -> "🚨 You've exceeded your budget. Review your recent expenses and cut back on non-essential spending."
     }
+}
+
+// 2. Predictive Analytics
+private fun generatePredictiveTips(state: DashboardState): List<TipInfo> {
+    val tips = mutableListOf<TipInfo>()
     
     if (state.budgetGoal != null) {
-        val remaining = state.amountRemainingToMax
-        if (remaining > 0) {
-            val formattedRemaining = formatCurrencyNonComposable(remaining)
-            tips.add(TipInfo("Budget Remaining", "You have $formattedRemaining left in your budget", "💰"))
+        val daysInMonth = 30 // Approximate
+        val daysPassed = daysInMonth - state.daysRemainingInMonth
+        val dailyAverage = if (daysPassed > 0) state.totalSpentThisMonth / daysPassed else 0.0
+        val projectedMonthly = dailyAverage * daysInMonth
+        val budgetRemaining = state.budgetGoal.maximumGoal - state.totalSpentThisMonth
+        
+        // Budget projection
+        if (projectedMonthly > state.budgetGoal.maximumGoal) {
+            val overage = projectedMonthly - state.budgetGoal.maximumGoal
+            tips.add(TipInfo(
+                "Budget Alert", 
+                "At current pace, you'll exceed budget by ${formatCurrencyNonComposable(overage)}", 
+                "📈", 1
+            ))
+        } else if (projectedMonthly < state.budgetGoal.maximumGoal * 0.8) {
+            val savings = state.budgetGoal.maximumGoal - projectedMonthly
+            tips.add(TipInfo(
+                "Savings Opportunity", 
+                "You could save ${formatCurrencyNonComposable(savings)} this month", 
+                "💰", 2
+            ))
+        }
+        
+        // Daily spending limit
+        val dailyLimit = budgetRemaining / maxOf(state.daysRemainingInMonth, 1)
+        if (dailyLimit > 0) {
+            tips.add(TipInfo(
+                "Daily Limit", 
+                "Spend max ${formatCurrencyNonComposable(dailyLimit)} per day to stay on track", 
+                "📅", 3
+            ))
         }
     }
     
-    return PersonalizedTips(mainTip, tips)
+    return tips
+}
+
+// 3. Spending Pattern Analysis
+private fun generateSpendingPatternTips(state: DashboardState): List<TipInfo> {
+    val tips = mutableListOf<TipInfo>()
+    
+    // Expense frequency analysis
+    when {
+        state.expenseCountThisMonth == 0 -> {
+            tips.add(TipInfo("Start Tracking", "Begin logging expenses to build better financial habits", "📝", 1))
+        }
+        state.expenseCountThisMonth < 3 -> {
+            tips.add(TipInfo("Track More", "Log all expenses for better insights into spending patterns", "📊", 2))
+        }
+        state.expenseCountThisMonth > 20 -> {
+            tips.add(TipInfo("Frequent Spending", "Consider consolidating small purchases to reduce transaction fees", "🔄", 3))
+        }
+    }
+    
+    // Average expense analysis
+    when {
+        state.averageExpenseThisMonth > 1000 -> {
+            tips.add(TipInfo("Large Purchases", "Review if large expenses align with your financial goals", "🔍", 2))
+        }
+        state.averageExpenseThisMonth < 50 -> {
+            tips.add(TipInfo("Small Purchases", "Track small expenses - they add up quickly!", "🔍", 3))
+        }
+    }
+    
+    // Spending trend analysis
+    if (state.dailyTrend.size > 7) {
+        val recentTrend = calculateTrendDirection(state.dailyTrend)
+        when {
+            recentTrend > 0.2f -> {
+                tips.add(TipInfo("Spending Increase", "Your spending is trending upward - review recent expenses", "📈", 1))
+            }
+            recentTrend < -0.2f -> {
+                tips.add(TipInfo("Spending Decrease", "Great job reducing your spending! Keep it up", "📉", 2))
+            }
+        }
+    }
+    
+    return tips
+}
+
+// 4. Category Intelligence
+private fun generateCategoryTips(state: DashboardState): List<TipInfo> {
+    val tips = mutableListOf<TipInfo>()
+    
+    if (state.topCategories.isNotEmpty()) {
+        val topCategory = state.topCategories.first()
+        val totalSpent = state.totalSpentThisMonth
+        val categoryPercentage = (topCategory.amount / totalSpent * 100).toInt()
+        
+        when {
+            categoryPercentage > 60 -> {
+                tips.add(TipInfo(
+                    "Category Focus", 
+                    "${topCategory.name} is ${categoryPercentage}% of spending - consider diversifying", 
+                    "🎯", 1
+                ))
+            }
+            categoryPercentage > 40 -> {
+                tips.add(TipInfo(
+                    "Top Category", 
+                    "${topCategory.name} (${formatCurrencyNonComposable(topCategory.amount)}) is your biggest expense", 
+                    "🏆", 2
+                ))
+            }
+        }
+        
+        // Category balance analysis
+        if (state.topCategories.size >= 3) {
+            val top3Total = state.topCategories.take(3).sumOf { it.amount }
+            val top3Percentage = (top3Total / totalSpent * 100).toInt()
+            
+            if (top3Percentage > 90) {
+                tips.add(TipInfo(
+                    "Category Balance", 
+                    "Top 3 categories are ${top3Percentage}% of spending - consider spreading out", 
+                    "⚖️", 3
+                ))
+            }
+        }
+    }
+    
+    return tips
+}
+
+// 5. Behavioral Insights
+private fun generateBehavioralTips(state: DashboardState): List<TipInfo> {
+    val tips = mutableListOf<TipInfo>()
+    
+    // Spending consistency
+    if (state.expenseCountThisMonth > 5) {
+        val daysWithExpenses = state.dailyTrend.count { it.amount > 0 }
+        val consistency = daysWithExpenses.toFloat() / minOf(state.dailyTrend.size, 30)
+        
+        when {
+            consistency > 0.8f -> {
+                tips.add(TipInfo("Consistent Spender", "You spend almost daily - consider weekly budgeting", "📅", 2))
+            }
+            consistency < 0.3f -> {
+                tips.add(TipInfo("Occasional Spender", "You spend infrequently - great for impulse control!", "🎯", 3))
+            }
+        }
+    }
+    
+    // Recent activity analysis
+    if (state.recentExpense != null) {
+        val daysSinceLastExpense = (System.currentTimeMillis() - state.recentExpense.date.time) / (1000 * 60 * 60 * 24)
+        when {
+            daysSinceLastExpense > 7 -> {
+                tips.add(TipInfo("No Recent Activity", "No expenses logged in ${daysSinceLastExpense} days", "⏰", 2))
+            }
+            daysSinceLastExpense < 1 -> {
+                tips.add(TipInfo("Active Spender", "You logged an expense today - keep tracking!", "✅", 3))
+            }
+        }
+    }
+    
+    return tips
+}
+
+// 6. Savings Opportunities
+private fun generateSavingsTips(state: DashboardState): List<TipInfo> {
+    val tips = mutableListOf<TipInfo>()
+    
+    if (state.budgetGoal != null) {
+        val remaining = state.amountRemainingToMax
+        val savingsRate = if (state.budgetGoal.maximumGoal > 0) {
+            (remaining / state.budgetGoal.maximumGoal * 100).toInt()
+        } else 0
+        
+        when {
+            savingsRate > 30 -> {
+                tips.add(TipInfo(
+                    "High Savings Rate", 
+                    "You're saving ${savingsRate}% of your budget - excellent work!", 
+                    "💎", 2
+                ))
+            }
+            savingsRate > 10 -> {
+                tips.add(TipInfo(
+                    "Good Savings", 
+                    "You're saving ${savingsRate}% of your budget - keep it up!", 
+                    "👍", 3
+                ))
+            }
+            remaining > 0 -> {
+                tips.add(TipInfo(
+                    "Savings Potential", 
+                    "You have ${formatCurrencyNonComposable(remaining)} left to save this month", 
+                    "💰", 2
+                ))
+            }
+        }
+    }
+    
+    return tips
+}
+
+// 7. Alert Tips
+private fun generateAlertTips(state: DashboardState): List<TipInfo> {
+    val tips = mutableListOf<TipInfo>()
+    
+    // Budget alerts
+    if (state.budgetGoal != null) {
+        val progressPercent = state.progressPercent
+        when {
+            progressPercent > 100 -> {
+                tips.add(TipInfo("Over Budget", "You've exceeded your budget by ${(progressPercent - 100).toInt()}%", "🚨", 1))
+            }
+            progressPercent > 90 -> {
+                tips.add(TipInfo("Budget Warning", "You've used ${progressPercent.toInt()}% of your budget", "⚠️", 1))
+            }
+        }
+    }
+    
+    // No recent activity alert
+    if (state.expenseCountThisMonth == 0 && state.dailyTrend.isNotEmpty()) {
+        tips.add(TipInfo("No Activity", "No expenses logged this month - start tracking!", "📝", 1))
+    }
+    
+    return tips
 }
 
 @Composable
