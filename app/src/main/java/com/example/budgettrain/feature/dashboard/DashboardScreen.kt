@@ -684,7 +684,7 @@ private fun SkeletonBlock(modifier: Modifier) {
 }
 
 @Composable
-private fun BrandHeader() {
+fun BrandHeader() {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "Budget Train",

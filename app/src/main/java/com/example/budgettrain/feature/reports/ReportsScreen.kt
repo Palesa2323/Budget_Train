@@ -34,8 +34,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import com.example.budgettrain.data.dao.CategoryTotal
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -78,128 +76,203 @@ fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
         )
     }
 
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Budget Train", style = MaterialTheme.typography.headlineMedium, color = Color(0xFF2196F3))
-        Text("FOR KEEPING YOUR\nBUDGETS ON TRACK", style = MaterialTheme.typography.labelSmall, color = Color(0xFF607D8B))
-        Spacer(Modifier.height(8.dp))
-        Text("Reports & Graphs", style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.height(12.dp))
-        Card(elevation = CardDefaults.cardElevation(4.dp), modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = {
-                        val c = Calendar.getInstance().apply { timeInMillis = startMillis }
-                        DatePickerDialog(context, { _, y, m, d ->
-                            Calendar.getInstance().apply { set(y, m, d, 0, 0, 0); startMillis = timeInMillis }
-                        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
-                    }) { Text("Start: ${sdf.format(startMillis)}", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        item {
+            BrandHeader()
+        }
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        item {
+            Text("Reports & Graphs", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+        item {
+            Card(
+                elevation = CardDefaults.cardElevation(4.dp), 
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        "Date Range Filter",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color(0xFF2196F3)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(
+                            onClick = {
+                                val c = Calendar.getInstance().apply { timeInMillis = startMillis }
+                                DatePickerDialog(context, { _, y, m, d ->
+                                    Calendar.getInstance().apply { set(y, m, d, 0, 0, 0); startMillis = timeInMillis }
+                                }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Start: ${sdf.format(startMillis)}", maxLines = 1, overflow = TextOverflow.Ellipsis) }
 
-                    Button(onClick = {
-                        val c = Calendar.getInstance().apply { timeInMillis = endMillis }
-                        DatePickerDialog(context, { _, y, m, d ->
-                            Calendar.getInstance().apply { set(y, m, d, 23, 59, 59); endMillis = timeInMillis }
-                        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
-                    }) { Text("End: ${sdf.format(endMillis)}", maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                }
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
-                        onClick = {
-                            // Normalize to full-day boundaries and then load
-                            val startCal = Calendar.getInstance().apply {
-                                timeInMillis = startMillis
-                                set(Calendar.HOUR_OF_DAY, 0)
-                                set(Calendar.MINUTE, 0)
-                                set(Calendar.SECOND, 0)
-                                set(Calendar.MILLISECOND, 0)
+                        Button(
+                            onClick = {
+                                val c = Calendar.getInstance().apply { timeInMillis = endMillis }
+                                DatePickerDialog(context, { _, y, m, d ->
+                                    Calendar.getInstance().apply { set(y, m, d, 23, 59, 59); endMillis = timeInMillis }
+                                }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+                            modifier = Modifier.weight(1f)
+                        ) { Text("End: ${sdf.format(endMillis)}", maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(
+                            onClick = {
+                                // Normalize to full-day boundaries and then load
+                                val startCal = Calendar.getInstance().apply {
+                                    timeInMillis = startMillis
+                                    set(Calendar.HOUR_OF_DAY, 0)
+                                    set(Calendar.MINUTE, 0)
+                                    set(Calendar.SECOND, 0)
+                                    set(Calendar.MILLISECOND, 0)
+                                }
+                                val endCal = Calendar.getInstance().apply {
+                                    timeInMillis = endMillis
+                                    set(Calendar.HOUR_OF_DAY, 23)
+                                    set(Calendar.MINUTE, 59)
+                                    set(Calendar.SECOND, 59)
+                                    set(Calendar.MILLISECOND, 999)
+                                }
+                                vm.setRange(startCal.timeInMillis, endCal.timeInMillis)
+                                vm.load()
+                            },
+                            enabled = !state.loading,
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                        ) { 
+                            if (state.loading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.height(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text("Load Report")
                             }
-                            val endCal = Calendar.getInstance().apply {
-                                timeInMillis = endMillis
-                                set(Calendar.HOUR_OF_DAY, 23)
-                                set(Calendar.MINUTE, 59)
-                                set(Calendar.SECOND, 59)
-                                set(Calendar.MILLISECOND, 999)
-                            }
-                            vm.setRange(startCal.timeInMillis, endCal.timeInMillis)
-                            vm.load()
-                        },
-                        enabled = !state.loading
-                    ) { 
-                        if (state.loading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.height(16.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text("Load Report")
                         }
                     }
                 }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
-
-        Card(elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                val total = state.expenses.sumOf { it.amount }
-                val count = state.expenses.size
-                val currency = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "ZA")).apply {
-                    currency = java.util.Currency.getInstance("ZAR")
+        item {
+            Card(
+                elevation = CardDefaults.cardElevation(4.dp), 
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    val total = state.expenses.sumOf { it.amount }
+                    val count = state.expenses.size
+                    val currency = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "ZA")).apply {
+                        currency = java.util.Currency.getInstance("ZAR")
+                    }
+                    Text(
+                        "Expense Summary",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color(0xFF2196F3)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        currency.format(total), 
+                        style = MaterialTheme.typography.titleLarge, 
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF4CAF50)
+                    )
+                    Text(
+                        "$count expenses in range", 
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF757575)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    DailyLineChart(
+                        expenses = state.expenses,
+                        start = state.startMillis,
+                        end = state.endMillis
+                    )
                 }
-                Text(currency.format(total), style = MaterialTheme.typography.titleLarge, color = Color(0xFF00BCD4))
-                Text("$count expenses in range", style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.height(12.dp))
-                DailyLineChart(
-                    expenses = state.expenses,
-                    start = state.startMillis,
-                    end = state.endMillis
-                )
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        Card(elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Budget Trends", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(4.dp))
-                Text("${sdf.format(state.startMillis)} to ${sdf.format(state.endMillis)}")
-                Spacer(Modifier.height(8.dp))
-                
-                // Budget Status Indicator
-                val totalSpent = state.expenses.sumOf { it.amount }
-                val prefs = context.getSharedPreferences("budget_goals", Context.MODE_PRIVATE)
-                val minGoal = prefs.getFloat("min_goal", 0f).toDouble()
-                val maxGoal = prefs.getFloat("max_goal", 0f).toDouble()
-                
-                if (maxGoal > 0) {
-                    BudgetStatusIndicator(
-                        totalSpent = totalSpent,
-                        minGoal = minGoal,
-                        maxGoal = maxGoal
+        item {
+            Card(
+                elevation = CardDefaults.cardElevation(4.dp), 
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        "Budget Trends", 
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color(0xFF2196F3)
                     )
                     Spacer(Modifier.height(8.dp))
-                }
-                
-                // Trend Analysis
-                val previousTotal = state.previousPeriodExpenses.sumOf { it.amount }
-                if (previousTotal > 0) {
-                    TrendAnalysisIndicator(
-                        currentTotal = totalSpent,
-                        previousTotal = previousTotal
+                    Text(
+                        "${sdf.format(state.startMillis)} to ${sdf.format(state.endMillis)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF757575)
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(12.dp))
+                    
+                    // Budget Status Indicator
+                    val totalSpent = state.expenses.sumOf { it.amount }
+                    val prefs = context.getSharedPreferences("budget_goals", Context.MODE_PRIVATE)
+                    val minGoal = prefs.getFloat("min_goal", 0f).toDouble()
+                    val maxGoal = prefs.getFloat("max_goal", 0f).toDouble()
+                    
+                    if (maxGoal > 0) {
+                        BudgetStatusIndicator(
+                            totalSpent = totalSpent,
+                            minGoal = minGoal,
+                            maxGoal = maxGoal
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    
+                    // Trend Analysis
+                    val previousTotal = state.previousPeriodExpenses.sumOf { it.amount }
+                    if (previousTotal > 0) {
+                        TrendAnalysisIndicator(
+                            currentTotal = totalSpent,
+                            previousTotal = previousTotal
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    
+                    CategoryTotalsList(totalsFlow = state.categoryTotals, totalSpent = totalSpent)
                 }
-                
-                CategoryTotalsList(totalsFlow = state.categoryTotals, totalSpent = totalSpent)
             }
         }
+    }
+}
+
+@Composable
+private fun BrandHeader() {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Budget Train",
+            style = MaterialTheme.typography.headlineMedium,
+            color = Color(0xFF2196F3)
+        )
+        Text(
+            text = "FOR KEEPING YOUR\nBUDGETS ON TRACK",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color(0xFF607D8B)
+        )
     }
 }
 
@@ -416,14 +489,14 @@ private fun DailyLineChart(expenses: List<com.example.budgettrain.data.entity.Ex
             val py = y0 - (value / maxVal.toFloat()) * chartHeight
             if (idx == 0) path.moveTo(px, py) else path.lineTo(px, py)
         }
-        drawPath(path, color = Color(0xFF00BCD4), style = Stroke(width = 4f))
+        drawPath(path, color = Color(0xFF2196F3), style = Stroke(width = 4f))
 
         // Points
         days.forEachIndexed { idx, pair ->
             val value = pair.second.toFloat()
             val px = leftPad + idx * stepX
             val py = y0 - (value / maxVal.toFloat()) * chartHeight
-            drawCircle(Color(0xFF00BCD4), radius = 4f, center = Offset(px, py))
+            drawCircle(Color(0xFF2196F3), radius = 4f, center = Offset(px, py))
         }
     }
 }
@@ -472,5 +545,3 @@ private fun CategoryTotalsList(totalsFlow: List<CategoryTotal>, totalSpent: Doub
         }
     }
 }
-
-
