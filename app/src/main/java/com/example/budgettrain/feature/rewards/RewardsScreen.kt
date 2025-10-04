@@ -1112,12 +1112,18 @@ private fun EnhancedChallengeCard(challenge: Challenge, groupColor: Color) {
         ChallengeTimeFrame.ONE_TIME -> Color(0xFFE91E63)
     }
     
+    // Check if this is a weekend challenge that's not active
+    val isInactiveWeekendChallenge = challenge.targetType == ChallengeType.WEEKEND_SAVER && !challenge.isActive
+    
     Card(
         modifier = Modifier.width(220.dp),
         elevation = CardDefaults.cardElevation(if (challenge.isCompleted) 4.dp else 2.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (challenge.isCompleted) 
-                Color(0xFFE8F5E8) else Color.White
+            containerColor = when {
+                challenge.isCompleted -> Color(0xFFE8F5E8)
+                isInactiveWeekendChallenge -> Color(0xFFF5F5F5)
+                else -> Color.White
+            }
         )
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -1131,14 +1137,18 @@ private fun EnhancedChallengeCard(challenge: Challenge, groupColor: Color) {
                     Icon(
                         imageVector = getRewardIcon(challenge.iconType),
                         contentDescription = "Challenge",
-                        tint = if (challenge.isCompleted) Color(0xFF4CAF50) else groupColor,
+                        tint = when {
+                            challenge.isCompleted -> Color(0xFF4CAF50)
+                            isInactiveWeekendChallenge -> Color(0xFFBDBDBD)
+                            else -> groupColor
+                        },
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = challenge.difficulty.name,
                         style = MaterialTheme.typography.labelSmall,
-                        color = difficultyColor,
+                        color = if (isInactiveWeekendChallenge) Color(0xFFBDBDBD) else difficultyColor,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -1146,13 +1156,17 @@ private fun EnhancedChallengeCard(challenge: Challenge, groupColor: Color) {
                 // Time frame indicator
                 Box(
                     modifier = Modifier
-                        .background(timeFrameColor.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                        .background(
+                            if (isInactiveWeekendChallenge) Color(0xFFBDBDBD).copy(alpha = 0.1f) 
+                            else timeFrameColor.copy(alpha = 0.1f), 
+                            RoundedCornerShape(4.dp)
+                        )
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = challenge.timeFrame.name.lowercase().replaceFirstChar { it.uppercase() },
                         style = MaterialTheme.typography.labelSmall,
-                        color = timeFrameColor,
+                        color = if (isInactiveWeekendChallenge) Color(0xFFBDBDBD) else timeFrameColor,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -1165,7 +1179,7 @@ private fun EnhancedChallengeCard(challenge: Challenge, groupColor: Color) {
                 text = challenge.title,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF333333),
+                color = if (isInactiveWeekendChallenge) Color(0xFFBDBDBD) else Color(0xFF333333),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1176,10 +1190,21 @@ private fun EnhancedChallengeCard(challenge: Challenge, groupColor: Color) {
             Text(
                 text = challenge.description,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF666666),
+                color = if (isInactiveWeekendChallenge) Color(0xFFBDBDBD) else Color(0xFF666666),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+            
+            // Show inactive indicator for weekend challenges
+            if (isInactiveWeekendChallenge) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Available on weekends only",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF9E9E9E),
+                    fontWeight = FontWeight.Medium
+                )
+            }
             
             // Category indicator if applicable
             if (challenge.categoryName != null) {

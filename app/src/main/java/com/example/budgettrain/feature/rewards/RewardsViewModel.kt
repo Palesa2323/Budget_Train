@@ -321,9 +321,21 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
         )
     }
 
-    private fun generateDynamicChallenges() {
+    private suspend fun generateDynamicChallenges() {
         val currentProgress = _progress.value
         println("DEBUG: Generating challenges with progress: $currentProgress")
+        
+        // Check if there are any expenses in the database
+        val hasExpenses = hasAnyExpenses()
+        println("DEBUG: Has expenses: $hasExpenses")
+        
+        // Calculate actual values using suspend functions
+        val expenseFreeDays = calculateExpenseFreedays()
+        val dailySpending = calculateDailySpending()
+        val morningTracking = calculateMorningTracking()
+        val categoryDiversity = calculateCategoryDiversity()
+        val weekendSpending = calculateWeekendSpending()
+        val eveningTracking = calculateEveningTracking()
         
         // Ensure we always have some challenges, even with minimal data
         val challenges = listOf(
@@ -352,7 +364,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.DAILY_EXPENSES,
                 targetValue = 3.0,
                 currentValue = currentProgress.dailyStreak.toDouble(),
-                isCompleted = currentProgress.dailyStreak >= 3,
+                isCompleted = hasExpenses && currentProgress.dailyStreak >= 3,
                 isActive = true,
                 rewardPoints = 150,
                 difficulty = ChallengeDifficulty.EASY,
@@ -367,7 +379,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.WEEKLY_SPENDING_LIMIT,
                 targetValue = 5000.0,
                 currentValue = maxOf(0.0, 5000.0 - currentProgress.weeklySavings),
-                isCompleted = currentProgress.budgetUnderTarget,
+                isCompleted = hasExpenses && isEndOfWeek() && currentProgress.budgetUnderTarget,
                 isActive = true,
                 rewardPoints = 250,
                 difficulty = ChallengeDifficulty.MEDIUM,
@@ -381,7 +393,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.SAVINGS_TARGET,
                 targetValue = 1000.0,
                 currentValue = currentProgress.weeklySavings,
-                isCompleted = currentProgress.weeklySavings >= 1000.0,
+                isCompleted = hasExpenses && isEndOfWeek() && currentProgress.weeklySavings >= 1000.0,
                 isActive = true,
                 rewardPoints = 300,
                 difficulty = ChallengeDifficulty.HARD,
@@ -440,8 +452,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 description = "Have 2 expense-free days this week",
                 targetType = ChallengeType.EXPENSE_FREE_DAYS,
                 targetValue = 2.0,
-                currentValue = calculateExpenseFreedays().toDouble(),
-                isCompleted = calculateExpenseFreedays() >= 2,
+                currentValue = expenseFreeDays.toDouble(),
+                isCompleted = hasExpenses && isEndOfWeek() && expenseFreeDays >= 2,
                 isActive = true,
                 rewardPoints = 200,
                 difficulty = ChallengeDifficulty.MEDIUM,
@@ -457,8 +469,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 description = "Stay under R500 daily spending",
                 targetType = ChallengeType.DAILY_SPENDING_LIMIT,
                 targetValue = 500.0,
-                currentValue = calculateDailySpending(),
-                isCompleted = calculateDailySpending() <= 500.0,
+                currentValue = dailySpending,
+                isCompleted = hasExpenses && dailySpending <= 500.0,
                 isActive = true,
                 rewardPoints = 100,
                 difficulty = ChallengeDifficulty.EASY,
@@ -470,16 +482,16 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
             Challenge(
                 id = "morning_tracker",
                 title = "Morning Tracker",
-                description = "Track your first expense before 10 AM",
+                description = "Track expenses before 10 AM for 5 days",
                 targetType = ChallengeType.MORNING_TRACKER,
-                targetValue = 1.0,
-                currentValue = calculateMorningTracking().toDouble(),
-                isCompleted = calculateMorningTracking() >= 1,
+                targetValue = 5.0,
+                currentValue = morningTracking.toDouble(),
+                isCompleted = hasExpenses && isEndOfWeek() && morningTracking >= 5,
                 isActive = true,
-                rewardPoints = 75,
-                difficulty = ChallengeDifficulty.EASY,
-                iconType = RewardIconType.GEM,
-                timeFrame = ChallengeTimeFrame.DAILY,
+                rewardPoints = 200,
+                difficulty = ChallengeDifficulty.MEDIUM,
+                iconType = RewardIconType.TROPHY,
+                timeFrame = ChallengeTimeFrame.WEEKLY,
                 isRepeatable = true
             ),
             
@@ -506,8 +518,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 description = "Use 5 different expense categories this week",
                 targetType = ChallengeType.CATEGORY_DIVERSITY,
                 targetValue = 5.0,
-                currentValue = calculateCategoryDiversity().toDouble(),
-                isCompleted = calculateCategoryDiversity() >= 5,
+                currentValue = categoryDiversity.toDouble(),
+                isCompleted = hasExpenses && isEndOfWeek() && categoryDiversity >= 5,
                 isActive = true,
                 rewardPoints = 150,
                 difficulty = ChallengeDifficulty.MEDIUM,
@@ -522,9 +534,9 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 description = "Spend less than R300 on weekends",
                 targetType = ChallengeType.WEEKEND_SAVER,
                 targetValue = 300.0,
-                currentValue = calculateWeekendSpending(),
-                isCompleted = calculateWeekendSpending() <= 300.0,
-                isActive = true,
+                currentValue = weekendSpending,
+                isCompleted = hasExpenses && isEndOfWeek() && weekendSpending <= 300.0,
+                isActive = isWeekend(),
                 rewardPoints = 180,
                 difficulty = ChallengeDifficulty.MEDIUM,
                 iconType = RewardIconType.DIAMOND,
@@ -540,7 +552,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.MONTHLY_EXPENSE_COUNT,
                 targetValue = 100.0,
                 currentValue = calculateMonthlyExpenseCount().toDouble(),
-                isCompleted = calculateMonthlyExpenseCount() >= 100,
+                isCompleted = hasExpenses && isEndOfMonth() && calculateMonthlyExpenseCount() >= 100,
                 isActive = true,
                 rewardPoints = 500,
                 difficulty = ChallengeDifficulty.EXPERT,
@@ -556,7 +568,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.MONTHLY_SAVINGS_GOAL,
                 targetValue = 5000.0,
                 currentValue = calculateMonthlySavings(),
-                isCompleted = calculateMonthlySavings() >= 5000.0,
+                isCompleted = hasExpenses && isEndOfMonth() && calculateMonthlySavings() >= 5000.0,
                 isActive = true,
                 rewardPoints = 750,
                 difficulty = ChallengeDifficulty.EXPERT,
@@ -573,7 +585,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.CATEGORY_SPENDING_LIMIT,
                 targetValue = 1500.0,
                 currentValue = calculateCategorySpending("Food"),
-                isCompleted = calculateCategorySpending("Food") <= 1500.0,
+                isCompleted = hasExpenses && isEndOfWeek() && calculateCategorySpending("Food") <= 1500.0,
                 isActive = true,
                 rewardPoints = 200,
                 difficulty = ChallengeDifficulty.MEDIUM,
@@ -590,7 +602,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.CATEGORY_SPENDING_LIMIT,
                 targetValue = 800.0,
                 currentValue = calculateCategorySpending("Transport"),
-                isCompleted = calculateCategorySpending("Transport") <= 800.0,
+                isCompleted = hasExpenses && isEndOfWeek() && calculateCategorySpending("Transport") <= 800.0,
                 isActive = true,
                 rewardPoints = 150,
                 difficulty = ChallengeDifficulty.EASY,
@@ -608,7 +620,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.LOW_SPENDING_DAYS,
                 targetValue = 10.0,
                 currentValue = currentProgress.lowSpendingDays.toDouble(),
-                isCompleted = currentProgress.lowSpendingDays >= 10,
+                isCompleted = hasExpenses && isEndOfMonth() && currentProgress.lowSpendingDays >= 10,
                 isActive = true,
                 rewardPoints = 400,
                 difficulty = ChallengeDifficulty.HARD,
@@ -624,7 +636,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.CONSISTENT_TRACKING,
                 targetValue = 21.0,
                 currentValue = currentProgress.dailyStreak.toDouble(),
-                isCompleted = currentProgress.dailyStreak >= 21,
+                isCompleted = hasExpenses && currentProgress.dailyStreak >= 21,
                 isActive = true,
                 rewardPoints = 600,
                 difficulty = ChallengeDifficulty.EXPERT,
@@ -639,8 +651,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 description = "Review and track expenses after 6 PM for 7 days",
                 targetType = ChallengeType.EVENING_REVIEWER,
                 targetValue = 7.0,
-                currentValue = calculateEveningTracking().toDouble(),
-                isCompleted = calculateEveningTracking() >= 7,
+                currentValue = eveningTracking.toDouble(),
+                isCompleted = hasExpenses && isEndOfWeek() && eveningTracking >= 7,
                 isActive = true,
                 rewardPoints = 250,
                 difficulty = ChallengeDifficulty.MEDIUM,
@@ -658,34 +670,228 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
         checkAndCompleteChallenges()
     }
     
-    private fun calculateExpenseFreedays(): Int {
-        // This would calculate actual expense-free days from the database
-        // For now, return calculated count based on low spending days pattern
-        return (_progress.value.lowSpendingDays / 5).coerceAtMost(7)
+    private suspend fun calculateExpenseFreedays(): Int {
+        return try {
+            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            val calendar = Calendar.getInstance()
+            val today = calendar.timeInMillis
+            
+            // Get the start of the week (Monday)
+            calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val weekStart = calendar.timeInMillis
+            
+            // Get all days in the current week
+            val weekDays = mutableListOf<Long>()
+            var currentDay = weekStart
+            while (currentDay <= today) {
+                weekDays.add(currentDay)
+                currentDay += (24 * 60 * 60 * 1000) // Add one day
+            }
+            
+            // Count days with no expenses
+            val daysWithExpenses = expenseList
+                .filter { it.date >= weekStart && it.date <= today }
+                .map { expense ->
+                    val expenseCalendar = Calendar.getInstance()
+                    expenseCalendar.timeInMillis = expense.date
+                    expenseCalendar.set(Calendar.HOUR_OF_DAY, 0)
+                    expenseCalendar.set(Calendar.MINUTE, 0)
+                    expenseCalendar.set(Calendar.SECOND, 0)
+                    expenseCalendar.set(Calendar.MILLISECOND, 0)
+                    expenseCalendar.timeInMillis
+                }
+                .distinct()
+            
+            val expenseFreeDays = weekDays.count { day -> day !in daysWithExpenses }
+            expenseFreeDays
+        } catch (e: Exception) {
+            println("DEBUG: Error calculating expense-free days: ${e.message}")
+            0
+        }
     }
     
-    private fun calculateDailySpending(): Double {
-        // Calculate today's spending
-        // For now, return a mock value based on weekly savings
-        return maxOf(0.0, 500.0 - (_progress.value.weeklySavings / 7))
+    private suspend fun calculateDailySpending(): Double {
+        return try {
+            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            val calendar = Calendar.getInstance()
+            val today = calendar.timeInMillis
+            
+            // Get start of today
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val todayStart = calendar.timeInMillis
+            
+            // Get end of today
+            calendar.set(Calendar.HOUR_OF_DAY, 23)
+            calendar.set(Calendar.MINUTE, 59)
+            calendar.set(Calendar.SECOND, 59)
+            calendar.set(Calendar.MILLISECOND, 999)
+            val todayEnd = calendar.timeInMillis
+            
+            // Calculate total spending for today
+            val todayExpenses = expenseList.filter { expense ->
+                expense.date >= todayStart && expense.date <= todayEnd
+            }
+            
+            todayExpenses.sumOf { it.amount }
+        } catch (e: Exception) {
+            println("DEBUG: Error calculating daily spending: ${e.message}")
+            0.0
+        }
     }
     
-    private fun calculateMorningTracking(): Int {
-        // Calculate how many days user tracked expenses before 10 AM
-        // For now, return based on daily streak
-        return (_progress.value.dailyStreak / 3).coerceAtMost(7)
+    private suspend fun calculateMorningTracking(): Int {
+        return try {
+            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            val calendar = Calendar.getInstance()
+            val today = calendar.timeInMillis
+            
+            // Get the start of the week (Monday)
+            calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val weekStart = calendar.timeInMillis
+            
+            // Count days where expenses were tracked before 10 AM
+            val morningTrackingDays = expenseList
+                .filter { expense -> 
+                    expense.date >= weekStart && expense.date <= today &&
+                    expense.startTime != null
+                }
+                .map { expense ->
+                    val expenseCalendar = Calendar.getInstance()
+                    expenseCalendar.timeInMillis = expense.startTime!!
+                    expenseCalendar.set(Calendar.HOUR_OF_DAY, 0)
+                    expenseCalendar.set(Calendar.MINUTE, 0)
+                    expenseCalendar.set(Calendar.SECOND, 0)
+                    expenseCalendar.set(Calendar.MILLISECOND, 0)
+                    expenseCalendar.timeInMillis
+                }
+                .distinct()
+                .count { dayTimestamp ->
+                    val dayCalendar = Calendar.getInstance()
+                    dayCalendar.timeInMillis = dayTimestamp
+                    val dayExpenses = expenseList.filter { expense ->
+                        val expenseDayCalendar = Calendar.getInstance()
+                        expenseDayCalendar.timeInMillis = expense.startTime ?: expense.date
+                        expenseDayCalendar.set(Calendar.HOUR_OF_DAY, 0)
+                        expenseDayCalendar.set(Calendar.MINUTE, 0)
+                        expenseDayCalendar.set(Calendar.SECOND, 0)
+                        expenseDayCalendar.set(Calendar.MILLISECOND, 0)
+                        expenseDayCalendar.timeInMillis == dayTimestamp
+                    }
+                    
+                    // Check if any expense on this day was tracked before 10 AM
+                    dayExpenses.any { expense ->
+                        val expenseTimeCalendar = Calendar.getInstance()
+                        expenseTimeCalendar.timeInMillis = expense.startTime ?: expense.date
+                        expenseTimeCalendar.get(Calendar.HOUR_OF_DAY) < 10
+                    }
+                }
+            
+            morningTrackingDays
+        } catch (e: Exception) {
+            println("DEBUG: Error calculating morning tracking: ${e.message}")
+            0
+        }
     }
     
-    private fun calculateCategoryDiversity(): Int {
-        // Calculate how many different categories user used this week
-        // For now, return a mock value
-        return minOf(5, (_progress.value.expensesTracked / 3).coerceAtLeast(1))
+    private suspend fun calculateCategoryDiversity(): Int {
+        return try {
+            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            val calendar = Calendar.getInstance()
+            val today = calendar.timeInMillis
+            
+            // Get the start of the week (Monday)
+            calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val weekStart = calendar.timeInMillis
+            
+            // Get unique categories used this week
+            val uniqueCategories = expenseList
+                .filter { expense -> expense.date >= weekStart && expense.date <= today }
+                .map { expense -> expense.categoryName }
+                .distinct()
+                .count()
+            
+            uniqueCategories
+        } catch (e: Exception) {
+            println("DEBUG: Error calculating category diversity: ${e.message}")
+            0
+        }
     }
     
-    private fun calculateWeekendSpending(): Double {
-        // Calculate weekend spending (Saturday + Sunday)
-        // For now, return a mock value
-        return maxOf(0.0, 300.0 - (_progress.value.weeklySavings / 10))
+    private suspend fun calculateWeekendSpending(): Double {
+        return try {
+            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            val calendar = Calendar.getInstance()
+            val today = calendar.timeInMillis
+            
+            // Get the start of the week (Monday)
+            calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val weekStart = calendar.timeInMillis
+            
+            // Calculate weekend spending (Saturday + Sunday)
+            val weekendExpenses = expenseList.filter { expense ->
+                expense.date >= weekStart && expense.date <= today
+            }.filter { expense ->
+                val expenseCalendar = Calendar.getInstance()
+                expenseCalendar.timeInMillis = expense.date
+                val dayOfWeek = expenseCalendar.get(Calendar.DAY_OF_WEEK)
+                dayOfWeek == Calendar.SATURDAY || dayOfWeek == Calendar.SUNDAY
+            }
+            
+            weekendExpenses.sumOf { it.amount }
+        } catch (e: Exception) {
+            println("DEBUG: Error calculating weekend spending: ${e.message}")
+            0.0
+        }
+    }
+    
+    private fun isWeekend(): Boolean {
+        val calendar = java.util.Calendar.getInstance()
+        val dayOfWeek = calendar.get(java.util.Calendar.DAY_OF_WEEK)
+        // Saturday = 7, Sunday = 1
+        return dayOfWeek == java.util.Calendar.SATURDAY || dayOfWeek == java.util.Calendar.SUNDAY
+    }
+    
+    private suspend fun hasAnyExpenses(): Boolean {
+        return try {
+            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            expenseList.isNotEmpty()
+        } catch (e: Exception) {
+            println("DEBUG: Error checking for expenses: ${e.message}")
+            false
+        }
+    }
+    
+    private fun isEndOfWeek(): Boolean {
+        val calendar = Calendar.getInstance()
+        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        // Sunday = 1, so Saturday = 7 is end of week
+        return dayOfWeek == Calendar.SUNDAY
+    }
+    
+    private fun isEndOfMonth(): Boolean {
+        val calendar = Calendar.getInstance()
+        val today = calendar.get(Calendar.DAY_OF_MONTH)
+        val lastDayOfMonth = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+        return today == lastDayOfMonth
     }
     
     private fun calculateMonthlyExpenseCount(): Int {
@@ -710,10 +916,62 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
         }
     }
     
-    private fun calculateEveningTracking(): Int {
-        // Calculate how many days user tracked expenses after 6 PM
-        // For now, return based on daily streak
-        return (_progress.value.dailyStreak / 2).coerceAtMost(7)
+    private suspend fun calculateEveningTracking(): Int {
+        return try {
+            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            val calendar = Calendar.getInstance()
+            val today = calendar.timeInMillis
+            
+            // Get the start of the week (Monday)
+            calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val weekStart = calendar.timeInMillis
+            
+            // Count days where expenses were tracked after 6 PM
+            val eveningTrackingDays = expenseList
+                .filter { expense -> 
+                    expense.date >= weekStart && expense.date <= today &&
+                    expense.startTime != null
+                }
+                .map { expense ->
+                    val expenseCalendar = Calendar.getInstance()
+                    expenseCalendar.timeInMillis = expense.startTime!!
+                    expenseCalendar.set(Calendar.HOUR_OF_DAY, 0)
+                    expenseCalendar.set(Calendar.MINUTE, 0)
+                    expenseCalendar.set(Calendar.SECOND, 0)
+                    expenseCalendar.set(Calendar.MILLISECOND, 0)
+                    expenseCalendar.timeInMillis
+                }
+                .distinct()
+                .count { dayTimestamp ->
+                    val dayCalendar = Calendar.getInstance()
+                    dayCalendar.timeInMillis = dayTimestamp
+                    val dayExpenses = expenseList.filter { expense ->
+                        val expenseDayCalendar = Calendar.getInstance()
+                        expenseDayCalendar.timeInMillis = expense.startTime ?: expense.date
+                        expenseDayCalendar.set(Calendar.HOUR_OF_DAY, 0)
+                        expenseDayCalendar.set(Calendar.MINUTE, 0)
+                        expenseDayCalendar.set(Calendar.SECOND, 0)
+                        expenseDayCalendar.set(Calendar.MILLISECOND, 0)
+                        expenseDayCalendar.timeInMillis == dayTimestamp
+                    }
+                    
+                    // Check if any expense on this day was tracked after 6 PM
+                    dayExpenses.any { expense ->
+                        val expenseTimeCalendar = Calendar.getInstance()
+                        expenseTimeCalendar.timeInMillis = expense.startTime ?: expense.date
+                        expenseTimeCalendar.get(Calendar.HOUR_OF_DAY) >= 18 // 6 PM
+                    }
+                }
+            
+            eveningTrackingDays
+        } catch (e: Exception) {
+            println("DEBUG: Error calculating evening tracking: ${e.message}")
+            0
+        }
     }
     
     private fun calculateTotalPoints() {
