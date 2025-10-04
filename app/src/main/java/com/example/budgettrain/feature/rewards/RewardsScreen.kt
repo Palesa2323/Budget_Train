@@ -36,9 +36,24 @@ fun RewardsScreen(viewModel: RewardsViewModel = viewModel()) {
 
     val context = LocalContext.current
 
-    // Debug logging
+    // Debug logging for state changes
     LaunchedEffect(challenges) {
-        println("DEBUG: RewardsScreen - challenges updated: ${challenges.size} total, ${challenges.count { it.isActive }} active")
+        val activeChallenges = challenges.filter { it.isActive && !it.isCompleted }
+        val completedChallenges = challenges.filter { it.isActive && it.isCompleted }
+        val totalPoints = completedChallenges.sumOf { it.rewardPoints }
+        
+        println("DEBUG: RewardsScreen - challenges updated:")
+        println("  Total: ${challenges.size}, Active: ${activeChallenges.size}, Completed: ${completedChallenges.size}")
+        println("  Points earned: $totalPoints")
+        println("  Completed challenges: ${completedChallenges.map { "${it.title} (${it.rewardPoints}pts)" }}")
+    }
+    
+    LaunchedEffect(rewards) {
+        println("DEBUG: RewardsScreen - rewards updated: ${rewards.size} total, ${rewards.count { it.isEarned }} earned")
+    }
+    
+    LaunchedEffect(badges) {
+        println("DEBUG: RewardsScreen - badges updated: ${badges.size} total, ${badges.count { it.isEarned }} earned")
     }
 
     LaunchedEffect(Unit) {
@@ -102,21 +117,49 @@ fun RewardsScreen(viewModel: RewardsViewModel = viewModel()) {
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "Debug Challenge Test",
+                        "Challenge Testing Tools",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFFF9800)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = {
-                            val testResult = viewModel.testChallenges()
-                            println("=== CHALLENGE TEST ===")
-                            println(testResult)
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800))
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Test Challenges", color = Color.White)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    viewModel.resetChallenges()
+                                    println("DEBUG: Challenges reset to initial state")
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63))
+                            ) {
+                                Text("Reset", color = Color.White)
+                            }
+                            
+                            Button(
+                                onClick = {
+                                    viewModel.completeChallenge("test_challenge")
+                                    println("DEBUG: Manually completed test challenge")
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                            ) {
+                                Text("Complete Test", color = Color.White)
+                            }
+                        }
+                        
+                        Button(
+                            onClick = {
+                                viewModel.forceRefreshAll()
+                                println("DEBUG: Force refresh triggered")
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Force Refresh All", color = Color.White)
+                        }
                     }
                 }
             }
@@ -155,12 +198,14 @@ fun RewardsScreen(viewModel: RewardsViewModel = viewModel()) {
         // Show completed achievements section
         val completedRewards = rewards.filter { it.isEarned }
         val completedBadges = badges.filter { it.isEarned }
+        val completedChallenges = challenges.filter { it.isCompleted }
         
-        if (completedRewards.isNotEmpty() || completedBadges.isNotEmpty()) {
+        if (completedRewards.isNotEmpty() || completedBadges.isNotEmpty() || completedChallenges.isNotEmpty()) {
             item {
                 CompletedAchievementsSection(
                     completedRewards = completedRewards,
-                    completedBadges = completedBadges
+                    completedBadges = completedBadges,
+                    completedChallenges = completedChallenges
                 )
             }
         }
@@ -528,11 +573,12 @@ private fun ChallengeProgressOverview(challenges: List<Challenge>) {
     val totalChallenges = activeChallenges.size + completedChallenges.size
     val overallProgress = if (totalChallenges > 0) (completedChallenges.size.toFloat() / totalChallenges) else 0f
     
-    // Group by time frame for detailed progress
-    val dailyChallenges = activeChallenges.filter { it.timeFrame == ChallengeTimeFrame.DAILY }
-    val weeklyChallenges = activeChallenges.filter { it.timeFrame == ChallengeTimeFrame.WEEKLY }
-    val monthlyChallenges = activeChallenges.filter { it.timeFrame == ChallengeTimeFrame.MONTHLY }
-    val oneTimeChallenges = activeChallenges.filter { it.timeFrame == ChallengeTimeFrame.ONE_TIME }
+    // Group by time frame for detailed progress (include both active and completed)
+    val allActiveChallenges = activeChallenges + completedChallenges
+    val dailyChallenges = allActiveChallenges.filter { it.timeFrame == ChallengeTimeFrame.DAILY }
+    val weeklyChallenges = allActiveChallenges.filter { it.timeFrame == ChallengeTimeFrame.WEEKLY }
+    val monthlyChallenges = allActiveChallenges.filter { it.timeFrame == ChallengeTimeFrame.MONTHLY }
+    val oneTimeChallenges = allActiveChallenges.filter { it.timeFrame == ChallengeTimeFrame.ONE_TIME }
     
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -630,8 +676,11 @@ private fun ChallengeProgressOverview(challenges: List<Challenge>) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                val totalPoints = activeChallenges.filter { it.isCompleted }.sumOf { it.rewardPoints }
-                val availablePoints = activeChallenges.sumOf { it.rewardPoints }
+                val totalPoints = completedChallenges.sumOf { it.rewardPoints }
+                val availablePoints = (activeChallenges + completedChallenges).sumOf { it.rewardPoints }
+                
+                // Debug logging for points calculation
+                println("DEBUG: Points calculation - Completed: ${completedChallenges.size} challenges, Total points: $totalPoints, Available: $availablePoints")
                 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
@@ -1280,7 +1329,8 @@ private fun ChallengeCard(challenge: Challenge) {
 @Composable
 private fun CompletedAchievementsSection(
     completedRewards: List<Reward>,
-    completedBadges: List<Badge>
+    completedBadges: List<Badge>,
+    completedChallenges: List<Challenge>
 ) {
     var isExpanded by remember { mutableStateOf(false) }
     
@@ -1327,7 +1377,7 @@ private fun CompletedAchievementsSection(
             
             // Summary text
             Text(
-                "You've earned ${completedRewards.size} rewards and ${completedBadges.size} badges!",
+                "You've earned ${completedRewards.size} rewards, ${completedBadges.size} badges, and completed ${completedChallenges.size} challenges!",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color(0xFF666666),
                 modifier = Modifier.padding(top = 4.dp)
@@ -1369,6 +1419,26 @@ private fun CompletedAchievementsSection(
                     
                     completedBadges.forEach { badge ->
                         CompletedBadgeCard(badge = badge)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+                
+                // Completed Challenges
+                if (completedChallenges.isNotEmpty()) {
+                    if (completedRewards.isNotEmpty() || completedBadges.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    
+                    Text(
+                        "Completed Challenges",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF333333),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    
+                    completedChallenges.forEach { challenge ->
+                        CompletedChallengeCard(challenge = challenge)
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
@@ -1478,6 +1548,85 @@ private fun CompletedBadgeCard(badge: Badge) {
                 tint = Color(0xFFFF9800),
                 modifier = Modifier.size(16.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun CompletedChallengeCard(challenge: Challenge) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(1.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = getRewardIcon(challenge.iconType),
+                contentDescription = "Challenge",
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier.size(20.dp)
+            )
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = challenge.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF333333)
+                )
+                Text(
+                    text = challenge.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF666666)
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "${challenge.timeFrame.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF2196F3),
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "${challenge.difficulty.name}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF666666),
+                        fontWeight = FontWeight.Medium
+                    )
+                    if (challenge.isRepeatable && challenge.completedCount > 0) {
+                        Text(
+                            text = "Completed ${challenge.completedCount} times",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF4CAF50),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+            
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Completed",
+                    tint = Color(0xFF4CAF50),
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "${challenge.rewardPoints} pts",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF4CAF50)
+                )
+            }
         }
     }
 }

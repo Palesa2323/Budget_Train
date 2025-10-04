@@ -653,6 +653,9 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
         // Set the challenges
         _challenges.value = challenges
         println("DEBUG: Set ${challenges.size} challenges, active challenges: ${challenges.count { it.isActive }}")
+        
+        // Check for natural completions after setting challenges
+        checkAndCompleteChallenges()
     }
     
     private fun calculateExpenseFreedays(): Int {
@@ -718,12 +721,31 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
         val earnedBadges = _badges.value.filter { it.isEarned }.sumOf { 100L } // Each badge worth 100 points
         val completedChallenges = _challenges.value.filter { it.isCompleted }.sumOf { it.rewardPoints.toLong() }
         
-        _totalPoints.value = (earnedRewards + earnedBadges + completedChallenges).toInt()
+        val totalPoints = (earnedRewards + earnedBadges + completedChallenges).toInt()
+        _totalPoints.value = totalPoints
+        
+        println("DEBUG: Total points calculated - Rewards: $earnedRewards, Badges: $earnedBadges, Challenges: $completedChallenges, Total: $totalPoints")
     }
 
     fun refreshRewards() {
         viewModelScope.launch {
             loadRewardsData()
+        }
+    }
+    
+    // Force refresh all data - useful for testing
+    fun forceRefreshAll() {
+        viewModelScope.launch {
+            try {
+                calculateUserProgress()
+                generateSmartRewards()
+                generateSmartBadges()
+                generateDynamicChallenges()
+                calculateTotalPoints()
+                println("DEBUG: Force refresh completed - All data regenerated")
+            } catch (e: Exception) {
+                println("DEBUG: Error in force refresh: ${e.message}")
+            }
         }
     }
     
@@ -746,7 +768,21 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 }
                 
                 _challenges.value = currentChallenges
+                
+                // Debug logging for challenge completion
+                val completedChallenges = currentChallenges.filter { it.isCompleted }
+                val totalPoints = completedChallenges.sumOf { it.rewardPoints }
+                println("DEBUG: Challenge '$challengeId' completed:")
+                println("  Total completed challenges: ${completedChallenges.size}")
+                println("  Total points from challenges: $totalPoints")
+                println("  Completed challenges: ${completedChallenges.map { "${it.title} (${it.rewardPoints}pts)" }}")
+                
+                // Regenerate rewards and badges to reflect new completion status
+                generateSmartRewards()
+                generateSmartBadges()
                 calculateTotalPoints()
+                
+                println("DEBUG: All data regenerated after challenge completion")
             }
         }
     }
@@ -768,7 +804,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
     }
     
     fun getChallengeProgress(): Map<ChallengeTimeFrame, Pair<Int, Int>> {
-        val challenges = _challenges.value.filter { it.isActive }
+        val challenges = _challenges.value // Include all challenges, not just active ones
         return ChallengeTimeFrame.values().associateWith { timeFrame ->
             val timeFrameChallenges = challenges.filter { it.timeFrame == timeFrame }
             val completed = timeFrameChallenges.count { it.isCompleted }
@@ -799,6 +835,92 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
             appendLine("- Expenses Tracked: ${_progress.value.expensesTracked}")
             appendLine("- Weekly Savings: R${_progress.value.weeklySavings}")
             appendLine("- Low Spending Days: ${_progress.value.lowSpendingDays}")
+        }
+    }
+    
+    // Test function to simulate expense tracking for testing challenges
+    fun simulateExpenseTracking() {
+        viewModelScope.launch {
+            try {
+                // Simulate adding an expense to trigger challenge updates
+                val currentProgress = _progress.value
+                val newProgress = currentProgress.copy(
+                    expensesTracked = currentProgress.expensesTracked + 1,
+                    dailyStreak = currentProgress.dailyStreak + 1
+                )
+                _progress.value = newProgress
+                
+                // Regenerate challenges with new progress
+                generateDynamicChallenges()
+                calculateTotalPoints()
+                
+                println("DEBUG: Simulated expense tracking - Progress updated")
+            } catch (e: Exception) {
+                println("DEBUG: Error simulating expense tracking: ${e.message}")
+            }
+        }
+    }
+    
+    // Reset function to reset all challenges and progress for testing
+    fun resetChallenges() {
+        viewModelScope.launch {
+            try {
+                // Reset progress to initial state
+                _progress.value = RewardProgress(
+                    dailyStreak = 0,
+                    expensesTracked = 0,
+                    weeklySavings = 0.0,
+                    monthlyGoalAchievements = 0,
+                    lowSpendingDays = 0,
+                    budgetUnderTarget = false
+                )
+                
+                // Regenerate all data with reset progress
+                generateSmartRewards()
+                generateSmartBadges()
+                generateDynamicChallenges()
+                calculateTotalPoints()
+                
+                println("DEBUG: Challenges and progress reset to initial state")
+            } catch (e: Exception) {
+                println("DEBUG: Error resetting challenges: ${e.message}")
+            }
+        }
+    }
+    
+    // Function to check and complete challenges naturally based on progress
+    private fun checkAndCompleteChallenges() {
+        val currentChallenges = _challenges.value.toMutableList()
+        var hasChanges = false
+        
+        currentChallenges.forEachIndexed { index, challenge ->
+            if (!challenge.isCompleted && challenge.isActive) {
+                val shouldComplete = when {
+                    challenge.targetValue <= 0 -> false
+                    challenge.currentValue >= challenge.targetValue -> true
+                    else -> false
+                }
+                
+                if (shouldComplete) {
+                    if (challenge.isRepeatable) {
+                        currentChallenges[index] = challenge.copy(
+                            completedCount = challenge.completedCount + 1,
+                            isCompleted = true
+                        )
+                    } else {
+                        currentChallenges[index] = challenge.copy(isCompleted = true)
+                    }
+                    hasChanges = true
+                    println("DEBUG: Challenge '${challenge.title}' completed naturally")
+                }
+            }
+        }
+        
+        if (hasChanges) {
+            _challenges.value = currentChallenges
+            generateSmartRewards()
+            generateSmartBadges()
+            calculateTotalPoints()
         }
     }
 }
