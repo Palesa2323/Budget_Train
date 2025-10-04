@@ -19,6 +19,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.Image
 import coil.compose.AsyncImage
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -57,87 +58,169 @@ fun ExpenseListScreen(vm: ExpenseViewModel = viewModel()) {
     var showImageViewer by remember { mutableStateOf(false) }
     var selectedImagePath by remember { mutableStateOf("") }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Text("All Expenses", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.padding(6.dp))
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            BrandHeader()
+        }
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        item {
+            Text("All Expenses", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+        item {
+            Spacer(modifier = Modifier.height(12.dp))
+        }
         
         // Date range filter
-        Card(elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(12.dp)) {
-                Text("Filter by Date Range", style = MaterialTheme.typography.titleSmall)
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = {
-                        val c = Calendar.getInstance().apply { timeInMillis = startDate ?: System.currentTimeMillis() }
-                        DatePickerDialog(context, { _, y, m, d ->
-                            Calendar.getInstance().apply { set(y, m, d, 0, 0, 0); startDate = timeInMillis }
-                        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
-                    }) { Text("Start: ${startDate?.let { sdfRange.format(it) } ?: "Select"}") }
-                    
-                    Button(onClick = {
-                        val c = Calendar.getInstance().apply { timeInMillis = endDate ?: System.currentTimeMillis() }
-                        DatePickerDialog(context, { _, y, m, d ->
-                            Calendar.getInstance().apply { set(y, m, d, 23, 59, 59); endDate = timeInMillis }
-                        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
-                    }) { Text("End: ${endDate?.let { sdfRange.format(it) } ?: "Select"}") }
-                }
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { vm.setDateRange(startDate, endDate) }) { Text("Apply Filter") }
-                    Button(onClick = { 
-                        startDate = null
-                        endDate = null
-                        vm.setDateRange(null, null)
-                    }) { Text("Clear Filter") }
+        item {
+            Card(
+                elevation = CardDefaults.cardElevation(4.dp), 
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Filter by Date Range", style = MaterialTheme.typography.titleSmall, color = Color(0xFF2196F3))
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(
+                            onClick = {
+                                val c = Calendar.getInstance().apply { timeInMillis = startDate ?: System.currentTimeMillis() }
+                                DatePickerDialog(context, { _, y, m, d ->
+                                    Calendar.getInstance().apply { set(y, m, d, 0, 0, 0); startDate = timeInMillis }
+                                }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+                        ) { Text("Start: ${startDate?.let { sdfRange.format(it) } ?: "Select"}") }
+                        
+                        Button(
+                            onClick = {
+                                val c = Calendar.getInstance().apply { timeInMillis = endDate ?: System.currentTimeMillis() }
+                                DatePickerDialog(context, { _, y, m, d ->
+                                    Calendar.getInstance().apply { set(y, m, d, 23, 59, 59); endDate = timeInMillis }
+                                }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+                        ) { Text("End: ${endDate?.let { sdfRange.format(it) } ?: "Select"}") }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(
+                            onClick = { vm.setDateRange(startDate, endDate) },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
+                        ) { Text("Apply Filter") }
+                        Button(
+                            onClick = { 
+                                startDate = null
+                                endDate = null
+                                vm.setDateRange(null, null)
+                            },
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF607D8B))
+                        ) { Text("Clear Filter") }
+                    }
                 }
             }
         }
         
-        Spacer(Modifier.height(12.dp))
-        
         if (state.filteredExpenses.isEmpty()) {
-            Text("No expenses logged yet.")
+            item {
+                Card(
+                    elevation = CardDefaults.cardElevation(4.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "No expenses logged yet.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color(0xFF757575)
+                        )
+                    }
+                }
+            }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(state.filteredExpenses) { row ->
-                    Card(elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(12.dp)) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(sdfDate.format(row.date))
-                                Text(currency.format(row.amount))
-                            }
-                            Text(row.description ?: "")
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                val time = if (row.startTime != null && row.endTime != null) {
-                                    sdfTime.format(row.startTime) + " – " + sdfTime.format(row.endTime)
-                                } else ""
-                                Text(time)
-                                Text(row.categoryName)
-                            }
+            items(state.filteredExpenses) { row ->
+                Card(
+                    elevation = CardDefaults.cardElevation(4.dp), 
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(
+                                sdfDate.format(row.date),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color(0xFF2196F3)
+                            )
+                            Text(
+                                currency.format(row.amount),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF4CAF50)
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            row.description ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFF424242)
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            val time = if (row.startTime != null && row.endTime != null) {
+                                sdfTime.format(row.startTime) + " – " + sdfTime.format(row.endTime)
+                            } else ""
+                            Text(
+                                time,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF757575)
+                            )
+                            Text(
+                                row.categoryName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF9C27B0)
+                            )
+                        }
+                        if (!row.imagePath.isNullOrBlank()) {
+                            Spacer(Modifier.padding(4.dp))
+                            AsyncImage(
+                                model = row.imagePath,
+                                contentDescription = "Receipt Photo",
+                                modifier = Modifier.fillMaxWidth().height(160.dp),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             if (!row.imagePath.isNullOrBlank()) {
-                                Spacer(Modifier.padding(4.dp))
-                                AsyncImage(
-                                    model = row.imagePath,
-                                    contentDescription = "Receipt Photo",
-                                    modifier = Modifier.fillMaxWidth().height(160.dp),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                if (!row.imagePath.isNullOrBlank()) {
-                                    IconButton(
-                                        onClick = {
-                                            selectedImagePath = row.imagePath
-                                            showImageViewer = true
-                                        }
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Visibility,
-                                            contentDescription = "View Image"
-                                        )
+                                IconButton(
+                                    onClick = {
+                                        selectedImagePath = row.imagePath
+                                        showImageViewer = true
                                     }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Visibility,
+                                        contentDescription = "View Image",
+                                        tint = Color(0xFF2196F3)
+                                    )
                                 }
-                                OutlinedButton(onClick = { vm.deleteExpense(row.id) }) { Text("Delete") }
+                            }
+                            OutlinedButton(
+                                onClick = { vm.deleteExpense(row.id) }
+                            ) { 
+                                Text(
+                                    "Delete",
+                                    color = Color(0xFFF44336)
+                                ) 
                             }
                         }
                     }
@@ -155,4 +238,18 @@ fun ExpenseListScreen(vm: ExpenseViewModel = viewModel()) {
     }
 }
 
-
+@Composable
+private fun BrandHeader() {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Budget Train",
+            style = MaterialTheme.typography.headlineMedium,
+            color = Color(0xFF2196F3)
+        )
+        Text(
+            text = "FOR KEEPING YOUR\nBUDGETS ON TRACK",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color(0xFF607D8B)
+        )
+    }
+}
