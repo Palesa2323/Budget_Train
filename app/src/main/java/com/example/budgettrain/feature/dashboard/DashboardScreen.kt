@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.text.NumberFormat
 import java.util.Locale
@@ -82,7 +83,7 @@ fun DashboardScreen(
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = "Budget Goals", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(12.dp))
-        TipsCard()
+        TipsCard(state = state)
         Spacer(modifier = Modifier.height(16.dp))
         HeaderSection(
             username = state.username, 
@@ -638,6 +639,10 @@ private fun formatCurrency(value: Double): String = NumberFormat.getCurrencyInst
     currency = java.util.Currency.getInstance("ZAR")
 }.format(value)
 
+private fun formatCurrencyNonComposable(value: Double): String = NumberFormat.getCurrencyInstance(Locale("en", "ZA")).apply {
+    currency = java.util.Currency.getInstance("ZAR")
+}.format(value)
+
 private fun statusLabel(status: BudgetStatus): String = when (status) {
     BudgetStatus.NO_GOALS -> "No Goals Set"
     BudgetStatus.UNDER_MINIMUM -> "Under Minimum"
@@ -695,7 +700,9 @@ private fun BrandHeader() {
 }
 
 @Composable
-private fun TipsCard() {
+private fun TipsCard(state: DashboardState) {
+    val tips = generatePersonalizedTips(state)
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
@@ -703,27 +710,52 @@ private fun TipsCard() {
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text("Budgeting Tips", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("💡 Smart Tips", style = MaterialTheme.typography.titleMedium)
+                Text("✨", style = MaterialTheme.typography.titleMedium)
+            }
+            Spacer(Modifier.height(12.dp))
+            
+            // Main tip
             Text(
-                "Pay yourself first – set aside savings for your goals before spending on anything else. Even a small amount saved consistently builds up over time.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF455A64)
+                text = tips.mainTip,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color(0xFF455A64),
+                lineHeight = 20.sp
             )
+            
             Spacer(Modifier.height(16.dp))
-            TipRow(title = "August Monthly Budget", value = "R3000.00 Total Spend Allowed")
-            Divider(color = Color(0xFF90CAF9), modifier = Modifier.padding(vertical = 12.dp))
-            TipRow(title = "August Saving Goal", value = "Save R2000.00 in\nFixed Deposit")
-            Spacer(Modifier.height(16.dp))
-            // Button removed; use bottom navigation to manage goals
+            
+            // Budget status tip
+            BudgetStatusTip(state = state)
+            
+            if (tips.additionalTips.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Divider(color = Color(0xFF90CAF9), modifier = Modifier.padding(vertical = 8.dp))
+                Spacer(Modifier.height(8.dp))
+                
+                // Additional tips
+                tips.additionalTips.forEach { tip ->
+                    TipRow(
+                        title = tip.title,
+                        value = tip.value,
+                        icon = tip.icon
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun TipRow(title: String, value: String) {
+private fun TipRow(title: String, value: String, icon: String = "💡") {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-        Icon(Icons.Outlined.Person, contentDescription = null, tint = Color(0xFF37474F))
+        Text(icon, style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.labelSmall, color = Color(0xFF607D8B))
@@ -815,6 +847,91 @@ private fun calculateTrendDirection(dailyTrend: List<DailyPoint>): Float {
         val percentage = change / firstHalfAvg
         percentage.toFloat()
     } else 0f
+}
+
+// Data classes for tips
+data class TipInfo(val title: String, val value: String, val icon: String = "💡")
+data class PersonalizedTips(val mainTip: String, val additionalTips: List<TipInfo> = emptyList())
+
+// Generate personalized tips based on user's spending patterns
+@Composable
+private fun generatePersonalizedTips(state: DashboardState): PersonalizedTips {
+    val tips = mutableListOf<TipInfo>()
+    
+    // Main tip based on budget status
+    val mainTip = when (state.budgetStatus) {
+        BudgetStatus.NO_GOALS -> "Set up your budget goals to start tracking your spending effectively. Even small goals can make a big difference!"
+        BudgetStatus.UNDER_MINIMUM -> "Great job staying under budget! Consider increasing your savings rate or investing the extra money."
+        BudgetStatus.ON_TRACK_LOW -> "You're doing well with your budget! Keep up the good work and consider setting higher savings goals."
+        BudgetStatus.ON_TRACK_HIGH -> "You're approaching your budget limit. Try to reduce discretionary spending for the rest of the month."
+        BudgetStatus.OVER_BUDGET -> "You've exceeded your budget. Review your recent expenses and cut back on non-essential spending."
+    }
+    
+    // Additional tips based on spending patterns
+    if (state.expenseCountThisMonth == 0) {
+        tips.add(TipInfo("Start Tracking", "Begin logging your expenses to build better financial habits", "📝"))
+    } else if (state.expenseCountThisMonth < 5) {
+        tips.add(TipInfo("Track More", "Log all your expenses for better insights into your spending patterns", "📊"))
+    }
+    
+    if (state.averageExpenseThisMonth > 500) {
+        tips.add(TipInfo("Review Large Expenses", "Consider if large purchases align with your financial goals", "🔍"))
+    }
+    
+    if (state.topCategories.isNotEmpty()) {
+        val topCategory = state.topCategories.first()
+        val formattedAmount = formatCurrencyNonComposable(topCategory.amount)
+        tips.add(TipInfo("Top Spending", "Your biggest expense is ${topCategory.name} ($formattedAmount)", "🏆"))
+    }
+    
+    if (state.budgetGoal != null) {
+        val remaining = state.amountRemainingToMax
+        if (remaining > 0) {
+            val formattedRemaining = formatCurrencyNonComposable(remaining)
+            tips.add(TipInfo("Budget Remaining", "You have $formattedRemaining left in your budget", "💰"))
+        }
+    }
+    
+    return PersonalizedTips(mainTip, tips)
+}
+
+@Composable
+private fun BudgetStatusTip(state: DashboardState) {
+    val (statusText, statusColor, statusIcon) = when (state.budgetStatus) {
+        BudgetStatus.NO_GOALS -> Triple("Set Budget Goals", Color(0xFF2196F3), "🎯")
+        BudgetStatus.UNDER_MINIMUM -> Triple("Under Budget", Color(0xFF4CAF50), "✅")
+        BudgetStatus.ON_TRACK_LOW -> Triple("On Track", Color(0xFF4CAF50), "👍")
+        BudgetStatus.ON_TRACK_HIGH -> Triple("Approaching Limit", Color(0xFFFF9800), "⚠️")
+        BudgetStatus.OVER_BUDGET -> Triple("Over Budget", Color(0xFFF44336), "🚨")
+    }
+    
+    Card(
+        colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.1f)),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(statusIcon, style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = statusColor,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+                if (state.budgetGoal != null) {
+                    Text(
+                        text = "${String.format("%.0f", state.progressPercent)}% of budget used",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF666666)
+                    )
+                }
+            }
+        }
+    }
 }
 
 
