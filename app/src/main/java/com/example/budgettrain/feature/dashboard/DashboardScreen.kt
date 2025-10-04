@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -48,8 +49,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.text.NumberFormat
+import java.text.SimpleDateFormat
 import java.util.Locale
 
 @Composable
@@ -776,61 +781,235 @@ private fun SimpleLineChart(
     val minAmount = data.minOfOrNull { it.amount } ?: 0.0
     val range = maxAmount - minAmount
     
-    Canvas(modifier = modifier) {
-        val width = size.width
-        val height = size.height
-        val padding = 16.dp.toPx()
-        
-        val chartWidth = width - 2 * padding
-        val chartHeight = height - 2 * padding
-        
-        val points = data.mapIndexed { index, point ->
-            val x = padding + (index.toFloat() / (data.size - 1)) * chartWidth
-            val normalizedAmount = if (range > 0) ((point.amount - minAmount) / range).toFloat() else 0.5f
-            val y = padding + (1f - normalizedAmount) * chartHeight
-            androidx.compose.ui.geometry.Offset(x, y)
-        }
-        
-        // Draw grid lines
-        val gridColor = Color.Gray.copy(alpha = 0.3f)
-        val strokeWidth = 1.dp.toPx()
-        
-        // Horizontal grid lines
-        for (i in 0..4) {
-            val y = padding + (i / 4f) * chartHeight
-            drawLine(
-                color = gridColor,
-                start = androidx.compose.ui.geometry.Offset(padding, y),
-                end = androidx.compose.ui.geometry.Offset(padding + chartWidth, y),
-                strokeWidth = strokeWidth
-            )
-        }
-        
-        // Draw the line
-        if (points.size > 1) {
-            val path = Path()
-            path.moveTo(points[0].x, points[0].y)
+    // Calculate trend line
+    val trendLine = calculateTrendLine(data)
+    
+    Box(modifier = modifier) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val width = size.width
+            val height = size.height
+            val leftPadding = 40.dp.toPx() // Space for Y-axis labels
+            val rightPadding = 16.dp.toPx()
+            val topPadding = 16.dp.toPx()
+            val bottomPadding = 30.dp.toPx() // Space for X-axis labels
             
-            for (i in 1 until points.size) {
-                path.lineTo(points[i].x, points[i].y)
+            val chartWidth = width - leftPadding - rightPadding
+            val chartHeight = height - topPadding - bottomPadding
+            
+            val points = data.mapIndexed { index, point ->
+                val x = leftPadding + (index.toFloat() / (data.size - 1)) * chartWidth
+                val normalizedAmount = if (range > 0) ((point.amount - minAmount) / range).toFloat() else 0.5f
+                val y = topPadding + (1f - normalizedAmount) * chartHeight
+                androidx.compose.ui.geometry.Offset(x, y)
             }
             
-            drawPath(
-                path = path,
-                color = Color(0xFF2196F3),
-                style = Stroke(width = 3.dp.toPx())
-            )
+            // Draw grid lines
+            val gridColor = Color.Gray.copy(alpha = 0.2f)
+            val strokeWidth = 1.dp.toPx()
+            
+            // Horizontal grid lines with Y-axis labels
+            for (i in 0..4) {
+                val y = topPadding + (i / 4f) * chartHeight
+                val value = minAmount + (range * (4 - i) / 4)
+                
+                // Draw grid line
+                drawLine(
+                    color = gridColor,
+                    start = androidx.compose.ui.geometry.Offset(leftPadding, y),
+                    end = androidx.compose.ui.geometry.Offset(leftPadding + chartWidth, y),
+                    strokeWidth = strokeWidth
+                )
+            }
+            
+            // Vertical grid lines
+            for (i in 0..4) {
+                val x = leftPadding + (i / 4f) * chartWidth
+                drawLine(
+                    color = gridColor,
+                    start = androidx.compose.ui.geometry.Offset(x, topPadding),
+                    end = androidx.compose.ui.geometry.Offset(x, topPadding + chartHeight),
+                    strokeWidth = strokeWidth
+                )
+            }
+            
+            // Draw trend line
+            if (trendLine != null) {
+                val trendStart = androidx.compose.ui.geometry.Offset(
+                    leftPadding,
+                    topPadding + (1f - ((trendLine.first - minAmount) / range).toFloat()) * chartHeight
+                )
+                val trendEnd = androidx.compose.ui.geometry.Offset(
+                    leftPadding + chartWidth,
+                    topPadding + (1f - ((trendLine.second - minAmount) / range).toFloat()) * chartHeight
+                )
+                
+                drawLine(
+                    color = Color(0xFFFF5722).copy(alpha = 0.7f),
+                    start = trendStart,
+                    end = trendEnd,
+                    strokeWidth = 2.dp.toPx(),
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 5f))
+                )
+            }
+            
+            // Draw area under the curve with gradient
+            if (points.size > 1) {
+                val path = Path()
+                path.moveTo(points[0].x, topPadding + chartHeight)
+                path.lineTo(points[0].x, points[0].y)
+                
+                for (i in 1 until points.size) {
+                    path.lineTo(points[i].x, points[i].y)
+                }
+                
+                path.lineTo(points.last().x, topPadding + chartHeight)
+                path.close()
+                
+                // Create gradient for area fill
+                val gradient = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF2196F3).copy(alpha = 0.3f),
+                        Color(0xFF2196F3).copy(alpha = 0.1f)
+                    ),
+                    startY = topPadding,
+                    endY = topPadding + chartHeight
+                )
+                
+                drawPath(path = path, brush = gradient)
+            }
+            
+            // Draw the main line
+            if (points.size > 1) {
+                val path = Path()
+                path.moveTo(points[0].x, points[0].y)
+                
+                for (i in 1 until points.size) {
+                    path.lineTo(points[i].x, points[i].y)
+                }
+                
+                drawPath(
+                    path = path,
+                    color = Color(0xFF1976D2),
+                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                )
+            }
+            
+            // Draw data points with enhanced styling
+            points.forEachIndexed { index, point ->
+                // Outer circle
+                drawCircle(
+                    color = Color.White,
+                    radius = 6.dp.toPx(),
+                    center = point
+                )
+                // Inner circle
+                drawCircle(
+                    color = Color(0xFF1976D2),
+                    radius = 4.dp.toPx(),
+                    center = point
+                )
+            }
         }
         
-        // Draw data points
-        points.forEach { point ->
-            drawCircle(
-                color = Color(0xFF2196F3),
-                radius = 4.dp.toPx(),
-                center = point
-            )
+        // Y-axis labels
+        Column(
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(35.dp)
+                .padding(top = 16.dp, bottom = 30.dp)
+        ) {
+            for (i in 0..4) {
+                val value = minAmount + (range * (4 - i) / 4)
+                val formattedValue = if (value >= 1000) {
+                    "$${String.format("%.1f", value / 1000)}k"
+                } else {
+                    "$${String.format("%.0f", value)}"
+                }
+                
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Text(
+                        text = formattedValue,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+        }
+        
+        // X-axis labels (dates)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(30.dp)
+                .padding(start = 40.dp, end = 16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            data.forEachIndexed { index, point ->
+                if (index % maxOf(1, data.size / 5) == 0 || index == data.size - 1) {
+                    val dateFormat = SimpleDateFormat("MM/dd", Locale.getDefault())
+                    Text(
+                        text = dateFormat.format(point.date),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray,
+                        fontSize = 10.sp
+                    )
+                }
+            }
+        }
+        
+        // Add trend indicator
+        if (trendLine != null) {
+            val trendDirection = if (trendLine.second > trendLine.first) "↗" else if (trendLine.second < trendLine.first) "↘" else "→"
+            val trendColor = if (trendLine.second > trendLine.first) Color(0xFFF44336) else Color(0xFF4CAF50)
+            
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .background(
+                        Color.White.copy(alpha = 0.9f),
+                        RoundedCornerShape(8.dp)
+                    )
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = trendDirection,
+                        color = trendColor,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Trend",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
+                }
+            }
         }
     }
+}
+
+private fun calculateTrendLine(data: List<DailyPoint>): Pair<Double, Double>? {
+    if (data.size < 2) return null
+    
+    // Simple linear regression to calculate trend line
+    val n = data.size
+    val sumX = (0 until n).sum().toDouble()
+    val sumY = data.sumOf { it.amount }
+    val sumXY = data.mapIndexed { index, point -> index * point.amount }.sum()
+    val sumXX = (0 until n).sumOf { it * it }.toDouble()
+    
+    val slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX)
+    val intercept = (sumY - slope * sumX) / n
+    
+    return Pair(intercept, intercept + slope * (n - 1))
 }
 
 private fun calculateTrendDirection(dailyTrend: List<DailyPoint>): Float {

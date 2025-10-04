@@ -120,10 +120,9 @@ class MainActivity : ComponentActivity() {
 
 private sealed class BottomItem(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     data object Dashboard : BottomItem("dashboard", "Dashboard", Icons.Filled.Home)
-    data object Expenses : BottomItem("expenses", "View Expenses", Icons.Filled.ReceiptLong)
+    data object Expenses : BottomItem("expenses", "Expenses", Icons.Filled.ReceiptLong)
     data object Reports : BottomItem("reports", "Reports", Icons.Filled.Assessment)
     data object Goals : BottomItem("goals", "Goals", Icons.Filled.Flag)
-
     data object Rewards : BottomItem("rewards", "Rewards", Icons.Filled.Star)
 
 }
