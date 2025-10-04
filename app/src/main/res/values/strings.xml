@@ -20,4 +20,15 @@
     <!-- Buttons -->
     <string name="btn_register">Register</string>
     <string name="btn_login_redirect">Already have an account? Log-in</string>
+
+    <!-- Titles -->
+    <string name="title_login">Log-in</string>
+
+    <!-- Hints -->
+    <string name="hint_login_username">Username</string>
+    <string name="hint_login_password">Password</string>
+
+    <!-- Buttons -->
+    <string name="btn_login">Log-in</string>
+    <string name="btn_register_redirect">Don’t have an account? Register</string>
 </resources>
