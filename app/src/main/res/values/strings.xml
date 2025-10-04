@@ -31,4 +31,9 @@
     <!-- Buttons -->
     <string name="btn_login">Log-in</string>
     <string name="btn_register_redirect">Don’t have an account? Register</string>
+
+    <string name="title_logout">Logout</string>
+    <string name="msg_logged_in">You are currently logged in</string>
+    <string name="btn_logout">Log out</string>
+
 </resources>
