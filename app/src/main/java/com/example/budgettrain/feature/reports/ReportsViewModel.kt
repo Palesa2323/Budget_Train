@@ -20,6 +20,7 @@ data class ReportsState(
     val endMillis: Long = 0L,
     val expenses: List<Expense> = emptyList(),
     val categoryTotals: List<CategoryTotal> = emptyList(),
+    val previousPeriodExpenses: List<Expense> = emptyList(),
     val loading: Boolean = false,
     val error: String? = null
 )
@@ -41,17 +42,31 @@ class ReportsViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(error = "Invalid range", loading = false) }
             return
         }
+        
+        // Calculate previous period (same duration, before current period)
+        val duration = end - start
+        val previousEnd = start - 1
+        val previousStart = previousEnd - duration
+        
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
             try {
                 combine(
                     db.expenseDao().getExpensesInRange(start, end),
-                    db.expenseDao().getCategoryTotals(start, end)
-                ) { expenses, totals ->
-                    Pair(expenses, totals)
-                }.collect { (expenses, totals) ->
-                    _state.update { it.copy(expenses = expenses, categoryTotals = totals, loading = false) }
+                    db.expenseDao().getCategoryTotals(start, end),
+                    db.expenseDao().getExpensesInRange(previousStart, previousEnd)
+                ) { expenses, totals, previousExpenses ->
+                    Triple(expenses, totals, previousExpenses)
+                }.collect { (expenses, totals, previousExpenses) ->
+                    _state.update { 
+                        it.copy(
+                            expenses = expenses, 
+                            categoryTotals = totals, 
+                            previousPeriodExpenses = previousExpenses,
+                            loading = false
+                        ) 
+                    }
                 }
             } catch (t: Throwable) {
                 _state.update { it.copy(loading = false, error = t.message) }

@@ -8,23 +8,38 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.TrendingDown
+import androidx.compose.material.icons.filled.TrendingFlat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import com.example.budgettrain.data.dao.CategoryTotal
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import android.content.Context
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
@@ -38,6 +53,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
+data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+
 @Composable
 fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
     val context = LocalContext.current
@@ -45,9 +62,28 @@ fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
     val cal = remember { Calendar.getInstance() }
     var startMillis by remember { mutableStateOf(cal.clone().let { it as Calendar; it.set(Calendar.DAY_OF_MONTH, 1); it.timeInMillis }) }
     var endMillis by remember { mutableStateOf(System.currentTimeMillis()) }
-    val state = vm.state
+    val state by vm.state.collectAsState()
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    // Show error dialog if there's an error
+    state.error?.let { error ->
+        AlertDialog(
+            onDismissRequest = { /* Error will be cleared when new data loads */ },
+            title = { Text("Error") },
+            text = { Text(error) },
+            confirmButton = {
+                Button(onClick = { /* Error will be cleared when new data loads */ }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
         Text("Budget Train", style = MaterialTheme.typography.headlineMedium, color = Color(0xFF2196F3))
         Text("FOR KEEPING YOUR\nBUDGETS ON TRACK", style = MaterialTheme.typography.labelSmall, color = Color(0xFF607D8B))
         Spacer(Modifier.height(8.dp))
@@ -72,25 +108,37 @@ fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
                 }
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = {
-                        // Normalize to full-day boundaries and then load
-                        val startCal = Calendar.getInstance().apply {
-                            timeInMillis = startMillis
-                            set(Calendar.HOUR_OF_DAY, 0)
-                            set(Calendar.MINUTE, 0)
-                            set(Calendar.SECOND, 0)
-                            set(Calendar.MILLISECOND, 0)
+                    Button(
+                        onClick = {
+                            // Normalize to full-day boundaries and then load
+                            val startCal = Calendar.getInstance().apply {
+                                timeInMillis = startMillis
+                                set(Calendar.HOUR_OF_DAY, 0)
+                                set(Calendar.MINUTE, 0)
+                                set(Calendar.SECOND, 0)
+                                set(Calendar.MILLISECOND, 0)
+                            }
+                            val endCal = Calendar.getInstance().apply {
+                                timeInMillis = endMillis
+                                set(Calendar.HOUR_OF_DAY, 23)
+                                set(Calendar.MINUTE, 59)
+                                set(Calendar.SECOND, 59)
+                                set(Calendar.MILLISECOND, 999)
+                            }
+                            vm.setRange(startCal.timeInMillis, endCal.timeInMillis)
+                            vm.load()
+                        },
+                        enabled = !state.loading
+                    ) { 
+                        if (state.loading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.height(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Load Report")
                         }
-                        val endCal = Calendar.getInstance().apply {
-                            timeInMillis = endMillis
-                            set(Calendar.HOUR_OF_DAY, 23)
-                            set(Calendar.MINUTE, 59)
-                            set(Calendar.SECOND, 59)
-                            set(Calendar.MILLISECOND, 999)
-                        }
-                        vm.setRange(startCal.timeInMillis, endCal.timeInMillis)
-                        vm.load()
-                    }) { Text("Load Report") }
+                    }
                 }
             }
         }
@@ -99,8 +147,8 @@ fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
 
         Card(elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
-                val total = state.value.expenses.sumOf { it.amount }
-                val count = state.value.expenses.size
+                val total = state.expenses.sumOf { it.amount }
+                val count = state.expenses.size
                 val currency = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "ZA")).apply {
                     currency = java.util.Currency.getInstance("ZAR")
                 }
@@ -108,9 +156,9 @@ fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
                 Text("$count expenses in range", style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(12.dp))
                 DailyLineChart(
-                    expenses = state.value.expenses,
-                    start = state.value.startMillis,
-                    end = state.value.endMillis
+                    expenses = state.expenses,
+                    start = state.startMillis,
+                    end = state.endMillis
                 )
             }
         }
@@ -120,10 +168,184 @@ fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
         Card(elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp)) {
                 Text("Budget Trends", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text("${sdf.format(state.startMillis)} to ${sdf.format(state.endMillis)}")
                 Spacer(Modifier.height(8.dp))
-                Text("Jan to Aug overview")
-                Spacer(Modifier.height(8.dp))
-                CategoryTotalsList(totalsFlow = state.value.categoryTotals)
+                
+                // Budget Status Indicator
+                val totalSpent = state.expenses.sumOf { it.amount }
+                val prefs = context.getSharedPreferences("budget_goals", Context.MODE_PRIVATE)
+                val minGoal = prefs.getFloat("min_goal", 0f).toDouble()
+                val maxGoal = prefs.getFloat("max_goal", 0f).toDouble()
+                
+                if (maxGoal > 0) {
+                    BudgetStatusIndicator(
+                        totalSpent = totalSpent,
+                        minGoal = minGoal,
+                        maxGoal = maxGoal
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+                
+                // Trend Analysis
+                val previousTotal = state.previousPeriodExpenses.sumOf { it.amount }
+                if (previousTotal > 0) {
+                    TrendAnalysisIndicator(
+                        currentTotal = totalSpent,
+                        previousTotal = previousTotal
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+                
+                CategoryTotalsList(totalsFlow = state.categoryTotals, totalSpent = totalSpent)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BudgetStatusIndicator(totalSpent: Double, minGoal: Double, maxGoal: Double) {
+    val currency = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "ZA")).apply {
+        currency = java.util.Currency.getInstance("ZAR")
+    }
+    
+    val (status, statusColor, statusIcon, statusText) = when {
+        totalSpent < minGoal -> {
+            Quadruple(
+                "Under Minimum",
+                Color(0xFF4CAF50), // Green
+                Icons.Default.CheckCircle,
+                "You're spending below your minimum goal"
+            )
+        }
+        totalSpent < maxGoal * 0.8 -> {
+            Quadruple(
+                "On Track",
+                Color(0xFF2196F3), // Blue
+                Icons.Default.CheckCircle,
+                "Great! You're well within your budget"
+            )
+        }
+        totalSpent <= maxGoal -> {
+            Quadruple(
+                "Approaching Limit",
+                Color(0xFFFF9800), // Orange
+                Icons.Default.Warning,
+                "You're approaching your maximum budget"
+            )
+        }
+        else -> {
+            Quadruple(
+                "Over Budget",
+                Color(0xFFF44336), // Red
+                Icons.Default.Error,
+                "You've exceeded your maximum budget"
+            )
+        }
+    }
+    
+    val progressPercent = if (maxGoal > 0) (totalSpent / maxGoal * 100).coerceAtMost(100.0) else 0.0
+    
+    Card(
+        colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.1f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = statusIcon,
+                contentDescription = status,
+                tint = statusColor,
+                modifier = Modifier.height(20.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = status,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = statusColor
+                )
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF666666)
+                )
+                Text(
+                    text = "${String.format("%.1f", progressPercent)}% of max budget (${currency.format(maxGoal)})",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF666666)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrendAnalysisIndicator(currentTotal: Double, previousTotal: Double) {
+    val currency = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "ZA")).apply {
+        currency = java.util.Currency.getInstance("ZAR")
+    }
+    
+    val difference = currentTotal - previousTotal
+    val percentageChange = if (previousTotal > 0) (difference / previousTotal * 100) else 0.0
+    
+    val (trendIcon, trendColor, trendText) = when {
+        difference > 0 -> {
+            Triple(
+                Icons.Default.TrendingUp,
+                Color(0xFFF44336), // Red for increase
+                "Spending increased"
+            )
+        }
+        difference < 0 -> {
+            Triple(
+                Icons.Default.TrendingDown,
+                Color(0xFF4CAF50), // Green for decrease
+                "Spending decreased"
+            )
+        }
+        else -> {
+            Triple(
+                Icons.Default.TrendingFlat,
+                Color(0xFF666666), // Gray for no change
+                "Spending unchanged"
+            )
+        }
+    }
+    
+    Card(
+        colors = CardDefaults.cardColors(containerColor = trendColor.copy(alpha = 0.1f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = trendIcon,
+                contentDescription = trendText,
+                tint = trendColor,
+                modifier = Modifier.height(20.dp)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "vs Previous Period",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = trendColor
+                )
+                Text(
+                    text = trendText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF666666)
+                )
+                Text(
+                    text = "${if (difference >= 0) "+" else ""}${currency.format(difference)} (${String.format("%.1f", percentageChange)}%)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF666666)
+                )
             }
         }
     }
@@ -212,18 +434,39 @@ private fun dayKey(timeMs: Long): String {
 }
 
 @Composable
-private fun CategoryTotalsList(totalsFlow: List<CategoryTotal>) {
+private fun CategoryTotalsList(totalsFlow: List<CategoryTotal>, totalSpent: Double) {
     if (totalsFlow.isEmpty()) {
         Text("No data for selected range")
     } else {
         val currency = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "ZA")).apply {
             currency = java.util.Currency.getInstance("ZAR")
         }
-        LazyColumn {
+        LazyColumn(
+            modifier = Modifier.heightIn(max = 200.dp)
+        ) {
             items(totalsFlow) { row ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(row.categoryName)
-                    Text(currency.format(row.total))
+                val percentage = if (totalSpent > 0) (row.total / totalSpent * 100) else 0.0
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = row.categoryName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "${String.format("%.1f", percentage)}%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF666666)
+                        )
+                    }
+                    Text(
+                        text = currency.format(row.total),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
