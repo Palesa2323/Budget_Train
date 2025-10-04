@@ -191,7 +191,7 @@ fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
             }
         }
 
-        item {
+        item { 
             Card(
                 elevation = CardDefaults.cardElevation(4.dp), 
                 modifier = Modifier.fillMaxWidth(),
@@ -226,6 +226,46 @@ fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
                         start = state.startMillis,
                         end = state.endMillis
                     )
+                }
+            }
+        }
+
+        item {
+            Card(
+                elevation = CardDefaults.cardElevation(4.dp), 
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(
+                        "Spending by Category", 
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color(0xFF2196F3)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Visual breakdown of your expenses",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF757575)
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    
+                    val totalSpent = state.expenses.sumOf { it.amount }
+                    if (totalSpent > 0) {
+                        CategoryPieChart(
+                            categoryTotals = state.categoryTotals,
+                            totalSpent = totalSpent
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = androidx.compose.ui.Alignment.Center
+                        ) {
+                            Text("No spending data to display", color = Color.Gray)
+                        }
+                    }
                 }
             }
         }
@@ -276,46 +316,6 @@ fun ReportsScreen(vm: ReportsViewModel = viewModel()) {
                     }
                     
                     CategoryTotalsList(totalsFlow = state.categoryTotals, totalSpent = totalSpent)
-                }
-            }
-        }
-
-        item {
-            Card(
-                elevation = CardDefaults.cardElevation(4.dp), 
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Text(
-                        "Spending by Category", 
-                        style = MaterialTheme.typography.titleSmall,
-                        color = Color(0xFF2196F3)
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Visual breakdown of your expenses",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF757575)
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    
-                    val totalSpent = state.expenses.sumOf { it.amount }
-                    if (totalSpent > 0) {
-                        CategoryPieChart(
-                            categoryTotals = state.categoryTotals,
-                            totalSpent = totalSpent
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(200.dp),
-                            contentAlignment = androidx.compose.ui.Alignment.Center
-                        ) {
-                            Text("No spending data to display", color = Color.Gray)
-                        }
-                    }
                 }
             }
         }
@@ -795,101 +795,129 @@ private fun CategoryPieChart(
         Color(0xFF795548)  // Brown
     )
     
-    Box(modifier = modifier.fillMaxWidth().height(250.dp)) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val centerX = size.width / 2f
-            val centerY = size.height / 2f
-            val radius = minOf(centerX, centerY) * 0.6f
-            val startAngle = -90f // Start from top
-            
-            var currentAngle = startAngle
-            
-            categoryTotals.forEachIndexed { index, category ->
-                val percentage = category.total / totalSpent
-                val sweepAngle = (percentage * 360f).toFloat()
-                
-                if (sweepAngle > 0.5f) { // Only draw segments larger than 0.5 degrees
-                    val color = colors[index % colors.size]
+    Column(modifier = modifier.fillMaxWidth().heightIn(min = 300.dp)) {
+        // Top section with pie chart and legend
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Pie chart on the left side
+            Box(modifier = Modifier.weight(1f).height(200.dp)) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val centerX = size.width / 2f
+                    val centerY = size.height / 2f
+                    val radius = minOf(centerX, centerY) * 0.5f // Smaller radius to leave space
+                    val startAngle = -90f // Start from top
                     
-                    // Draw pie slice
-                    val path = Path()
-                    path.moveTo(centerX, centerY)
-                    path.arcTo(
-                        rect = androidx.compose.ui.geometry.Rect(
-                            centerX - radius,
-                            centerY - radius,
-                            centerX + radius,
-                            centerY + radius
-                        ),
-                        startAngleDegrees = currentAngle,
-                        sweepAngleDegrees = sweepAngle,
-                        forceMoveTo = false
-                    )
-                    path.close()
+                    var currentAngle = startAngle
                     
-                    drawPath(
-                        path = path,
-                        color = color,
-                        style = Stroke(width = 2.dp.toPx())
-                    )
-                    
-                    // Fill the slice
-                    drawPath(
-                        path = path,
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                color.copy(alpha = 0.8f),
-                                color.copy(alpha = 0.6f)
-                            ),
-                            center = androidx.compose.ui.geometry.Offset(centerX, centerY),
-                            radius = radius
-                        )
-                    )
-                    
-                    currentAngle += sweepAngle
+                    categoryTotals.forEachIndexed { index, category ->
+                        val percentage = category.total / totalSpent
+                        val sweepAngle = (percentage * 360f).toFloat()
+                        
+                        if (sweepAngle > 0.5f) { // Only draw segments larger than 0.5 degrees
+                            val color = colors[index % colors.size]
+                            
+                            // Draw pie slice
+                            val path = Path()
+                            path.moveTo(centerX, centerY)
+                            path.arcTo(
+                                rect = androidx.compose.ui.geometry.Rect(
+                                    centerX - radius,
+                                    centerY - radius,
+                                    centerX + radius,
+                                    centerY + radius
+                                ),
+                                startAngleDegrees = currentAngle,
+                                sweepAngleDegrees = sweepAngle,
+                                forceMoveTo = false
+                            )
+                            path.close()
+                            
+                            drawPath(
+                                path = path,
+                                color = color,
+                                style = Stroke(width = 2.dp.toPx())
+                            )
+                            
+                            // Fill the slice
+                            drawPath(
+                                path = path,
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        color.copy(alpha = 0.8f),
+                                        color.copy(alpha = 0.6f)
+                                    ),
+                                    center = androidx.compose.ui.geometry.Offset(centerX, centerY),
+                                    radius = radius
+                                )
+                            )
+                            
+                            currentAngle += sweepAngle
+                        }
+                    }
                 }
             }
-        }
-        
-        // Legend
-        Column(
-            modifier = Modifier
-                .align(androidx.compose.ui.Alignment.CenterEnd)
-                .padding(16.dp)
-                .width(120.dp)
-        ) {
-            categoryTotals.forEachIndexed { index, category ->
-                if (category.total > 0) {
-                    val percentage = (category.total / totalSpent * 100).toInt()
-                    val color = colors[index % colors.size]
-                    val currency = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "ZA")).apply {
-                        currency = java.util.Currency.getInstance("ZAR")
-                    }
-                    
-                    Row(
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        modifier = Modifier.padding(vertical = 2.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(12.dp)
-                                .background(color, androidx.compose.foundation.shape.CircleShape)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = category.categoryName,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.Black,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // Legend on the right side
+            Column(
+                modifier = Modifier
+                    .width(160.dp)
+                    .padding(vertical = 8.dp)
+            ) {
+                if (categoryTotals.isNotEmpty()) {
+                    Text(
+                        text = "Categories",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+                
+                categoryTotals.forEachIndexed { index, category ->
+                    if (category.total > 0) {
+                        val percentage = (category.total / totalSpent * 100).toDouble()
+                        val color = colors[index % colors.size]
+                        val currency = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "ZA")).apply {
+                            currency = java.util.Currency.getInstance("ZAR")
+                        }
+                        
+                        Row(
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 3.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(14.dp)
+                                    .background(color, androidx.compose.foundation.shape.CircleShape)
                             )
-                            Text(
-                                text = "${percentage}% • ${currency.format(category.total)}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.Gray,
-                                fontSize = 10.sp
-                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = category.categoryName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.Black,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${String.format("%.1f", percentage)}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF666666),
+                                    fontSize = 11.sp
+                                )
+                                Text(
+                                    text = currency.format(category.total),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFF2196F3),
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 10.sp
+                                )
+                            }
                         }
                     }
                 }
