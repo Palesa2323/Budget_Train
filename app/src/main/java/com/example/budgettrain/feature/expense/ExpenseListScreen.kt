@@ -30,24 +30,70 @@ import com.example.budgettrain.data.dao.ExpenseWithCategory
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.Calendar
+import android.app.DatePickerDialog
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 
 @Composable
 fun ExpenseListScreen(vm: ExpenseViewModel = viewModel()) {
     val state by vm.state.collectAsState()
+    val context = LocalContext.current
     val currency = NumberFormat.getCurrencyInstance(Locale("en", "ZA")).apply {
         currency = java.util.Currency.getInstance("ZAR")
     }
-    val sdfDate = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-    val sdfTime = SimpleDateFormat("HH:mm", Locale.getDefault())
+    val sdfDate = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
+    val sdfTime = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val sdfRange = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+    var startDate by remember { mutableStateOf<Long?>(null) }
+    var endDate by remember { mutableStateOf<Long?>(null) }
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         Text("All Expenses", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Spacer(Modifier.padding(6.dp))
-        if (state.expenses.isEmpty()) {
+        
+        // Date range filter
+        Card(elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp)) {
+                Text("Filter by Date Range", style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = {
+                        val c = Calendar.getInstance().apply { timeInMillis = startDate ?: System.currentTimeMillis() }
+                        DatePickerDialog(context, { _, y, m, d ->
+                            Calendar.getInstance().apply { set(y, m, d, 0, 0, 0); startDate = timeInMillis }
+                        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+                    }) { Text("Start: ${startDate?.let { sdfRange.format(it) } ?: "Select"}") }
+                    
+                    Button(onClick = {
+                        val c = Calendar.getInstance().apply { timeInMillis = endDate ?: System.currentTimeMillis() }
+                        DatePickerDialog(context, { _, y, m, d ->
+                            Calendar.getInstance().apply { set(y, m, d, 23, 59, 59); endDate = timeInMillis }
+                        }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
+                    }) { Text("End: ${endDate?.let { sdfRange.format(it) } ?: "Select"}") }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { vm.setDateRange(startDate, endDate) }) { Text("Apply Filter") }
+                    Button(onClick = { 
+                        startDate = null
+                        endDate = null
+                        vm.setDateRange(null, null)
+                    }) { Text("Clear Filter") }
+                }
+            }
+        }
+        
+        Spacer(Modifier.height(12.dp))
+        
+        if (state.filteredExpenses.isEmpty()) {
             Text("No expenses logged yet.")
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(state.expenses) { row ->
+                items(state.filteredExpenses) { row ->
                     Card(elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(12.dp)) {
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

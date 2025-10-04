@@ -15,6 +15,9 @@ import kotlinx.coroutines.launch
 data class ExpenseState(
     val categories: List<Pair<Long, String>> = emptyList(),
     val expenses: List<ExpenseWithCategory> = emptyList(),
+    val filteredExpenses: List<ExpenseWithCategory> = emptyList(),
+    val startDate: Long? = null,
+    val endDate: Long? = null,
     val error: String? = null,
     val saving: Boolean = false
 )
@@ -32,7 +35,7 @@ class ExpenseViewModel(app: Application) : AndroidViewModel(app) {
         }
         viewModelScope.launch {
             db.expenseDao().getAllExpensesWithCategory().collect { rows ->
-                _state.value = _state.value.copy(expenses = rows)
+                _state.value = _state.value.copy(expenses = rows, filteredExpenses = rows)
             }
         }
     }
@@ -160,6 +163,43 @@ class ExpenseViewModel(app: Application) : AndroidViewModel(app) {
                 _state.value = _state.value.copy(error = t.message)
             }
         }
+    }
+
+    fun setDateRange(start: Long?, end: Long?) {
+        val startDate = start?.let { 
+            java.util.Calendar.getInstance().apply {
+                timeInMillis = it
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }.timeInMillis
+        }
+        val endDate = end?.let {
+            java.util.Calendar.getInstance().apply {
+                timeInMillis = it
+                set(java.util.Calendar.HOUR_OF_DAY, 23)
+                set(java.util.Calendar.MINUTE, 59)
+                set(java.util.Calendar.SECOND, 59)
+                set(java.util.Calendar.MILLISECOND, 999)
+            }.timeInMillis
+        }
+        _state.value = _state.value.copy(startDate = startDate, endDate = endDate)
+        applyDateFilter()
+    }
+
+    private fun applyDateFilter() {
+        val expenses = _state.value.expenses
+        val start = _state.value.startDate
+        val end = _state.value.endDate
+        val filtered = if (start != null && end != null) {
+            expenses.filter { expense ->
+                expense.date >= start && expense.date <= end
+            }
+        } else {
+            expenses
+        }
+        _state.value = _state.value.copy(filteredExpenses = filtered)
     }
 }
 
