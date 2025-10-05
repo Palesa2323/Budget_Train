@@ -20,24 +20,24 @@
 
 
     <!-- Login button -->
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/loginButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/log_in"
         android:textAllCaps="true"
-        android:icon="@drawable/ic_login"
+        app:icon="@drawable/ic_login"
         android:backgroundTint="#0097A7"
         android:textColor="@android:color/white"
         android:layout_marginBottom="16dp"/>
 
     <!-- Register button -->
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/registerButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:backgroundTint="#0097A7"
-        android:icon="@android:drawable/ic_menu_add"
+        app:icon="@android:drawable/ic_menu_add"
         android:text="@string/register_new_account"
         android:textColor="@android:color/white" />
 </LinearLayout>
