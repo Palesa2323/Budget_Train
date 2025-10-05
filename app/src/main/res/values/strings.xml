@@ -1,3 +1,39 @@
 <resources>
-    <string name="app_name">BudgetTrain</string>
+    <string name="app_name">Budget Train App</string>
+    <string name="app_name_title">Budget Train</string>
+    <string name="app_tagline">FOR KEEPING YOUR BUDGETS ON TRACK</string>
+    <string name="log_in">LOG-IN</string>
+    <string name="register_new_account">REGISTER</string>
+    <string name="app_logo_description">Budget Train Logo</string>
+
+    <!-- Titles -->
+    <string name="title_budget_train">Budget Train</string>
+    <string name="subtitle_budget_train">FOR KEEPING YOUR BUDGETS ON TRACK</string>
+    <string name="title_register">Register</string>
+
+    <!-- Hints -->
+    <string name="hint_username">Username</string>
+    <string name="hint_email">Email</string>
+    <string name="hint_password">Password</string>
+    <string name="hint_confirm_password">Confirm Password</string>
+
+    <!-- Buttons -->
+    <string name="btn_register">Register</string>
+    <string name="btn_login_redirect">Already have an account? Log-in</string>
+
+    <!-- Titles -->
+    <string name="title_login">Log-in</string>
+
+    <!-- Hints -->
+    <string name="hint_login_username">Username</string>
+    <string name="hint_login_password">Password</string>
+
+    <!-- Buttons -->
+    <string name="btn_login">Log-in</string>
+    <string name="btn_register_redirect">Don’t have an account? Register</string>
+
+    <string name="title_logout">Logout</string>
+    <string name="msg_logged_in">You are currently logged in</string>
+    <string name="btn_logout">Log out</string>
+
 </resources>
