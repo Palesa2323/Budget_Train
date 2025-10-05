@@ -177,15 +177,15 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 budgetUnderTarget = totalSpent < 5000.0
             )
         } catch (e: Exception) {
-            // Fallback: Set some default progress values for testing
+            // Fallback: Set realistic default progress values
             println("DEBUG: Error calculating user progress: ${e.message}")
             _progress.value = RewardProgress(
-                dailyStreak = 1, // Start with some progress for testing
-                expensesTracked = 5,
-                weeklySavings = 2000.0,
+                dailyStreak = 0, // No streak if no data
+                expensesTracked = 0, // No expenses tracked if no data
+                weeklySavings = 0.0, // No savings if no data
                 monthlyGoalAchievements = 0,
-                lowSpendingDays = 2,
-                budgetUnderTarget = true
+                lowSpendingDays = 0, // No low spending days if no data
+                budgetUnderTarget = false // Not under budget if no data
             )
         }
     }
@@ -265,7 +265,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 id = "savings_champion",
                 title = "Savings Champion", 
                 description = "Save R1,000 this week",
-                isEarned = currentProgress.weeklySavings >= 1000.0,
+                isEarned = currentProgress.weeklySavings >= 1000.0 && currentProgress.expensesTracked >= 5,
                 progress = minOf(1f, currentProgress.weeklySavings.toFloat() / 1000f),
                 pointsValue = 150
             )
@@ -304,9 +304,9 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 id = "savings_expert",
                 name = "Savings Expert",
                 criteria = "Save over R2,000 in a week",
-                isEarned = currentProgress.weeklySavings >= 2000.0,
+                isEarned = currentProgress.weeklySavings >= 2000.0 && currentProgress.expensesTracked >= 10,
                 progress = minOf(1f, currentProgress.weeklySavings.toFloat() / 2000f),
-                earnedDate = if (currentProgress.weeklySavings >= 2000.0) Date() else null,
+                earnedDate = if (currentProgress.weeklySavings >= 2000.0 && currentProgress.expensesTracked >= 10) Date() else null,
                 iconType = BadgeIconType.CROWN
             ),
             Badge(
@@ -379,7 +379,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.WEEKLY_SPENDING_LIMIT,
                 targetValue = 5000.0,
                 currentValue = maxOf(0.0, 5000.0 - currentProgress.weeklySavings),
-                isCompleted = hasExpenses && isEndOfWeek() && currentProgress.budgetUnderTarget,
+                isCompleted = hasExpenses && isEndOfWeek() && currentProgress.budgetUnderTarget && currentProgress.weeklySavings > 0,
                 isActive = true,
                 rewardPoints = 250,
                 difficulty = ChallengeDifficulty.MEDIUM,
@@ -393,7 +393,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.SAVINGS_TARGET,
                 targetValue = 1000.0,
                 currentValue = currentProgress.weeklySavings,
-                isCompleted = hasExpenses && isEndOfWeek() && currentProgress.weeklySavings >= 1000.0,
+                isCompleted = hasExpenses && isEndOfWeek() && currentProgress.weeklySavings >= 1000.0 && currentProgress.expensesTracked >= 5,
                 isActive = true,
                 rewardPoints = 300,
                 difficulty = ChallengeDifficulty.HARD,
@@ -453,7 +453,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.EXPENSE_FREE_DAYS,
                 targetValue = 2.0,
                 currentValue = expenseFreeDays.toDouble(),
-                isCompleted = hasExpenses && isEndOfWeek() && expenseFreeDays >= 2,
+                isCompleted = hasExpenses && isEndOfWeek() && expenseFreeDays >= 2 && currentProgress.expensesTracked >= 3,
                 isActive = true,
                 rewardPoints = 200,
                 difficulty = ChallengeDifficulty.MEDIUM,
@@ -552,7 +552,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.MONTHLY_EXPENSE_COUNT,
                 targetValue = 100.0,
                 currentValue = calculateMonthlyExpenseCount().toDouble(),
-                isCompleted = hasExpenses && isEndOfMonth() && calculateMonthlyExpenseCount() >= 100,
+                isCompleted = hasExpenses && isEndOfMonth() && calculateMonthlyExpenseCount() >= 100 && currentProgress.expensesTracked >= 20,
                 isActive = true,
                 rewardPoints = 500,
                 difficulty = ChallengeDifficulty.EXPERT,
@@ -568,7 +568,7 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 targetType = ChallengeType.MONTHLY_SAVINGS_GOAL,
                 targetValue = 5000.0,
                 currentValue = calculateMonthlySavings(),
-                isCompleted = hasExpenses && isEndOfMonth() && calculateMonthlySavings() >= 5000.0,
+                isCompleted = hasExpenses && isEndOfMonth() && calculateMonthlySavings() >= 5000.0 && currentProgress.expensesTracked >= 20,
                 isActive = true,
                 rewardPoints = 750,
                 difficulty = ChallengeDifficulty.EXPERT,
@@ -883,8 +883,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
     private fun isEndOfWeek(): Boolean {
         val calendar = Calendar.getInstance()
         val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
-        // Sunday = 1, so Saturday = 7 is end of week
-        return dayOfWeek == Calendar.SUNDAY
+        // Allow completion on Saturday (7) or Sunday (1) - end of week
+        return dayOfWeek == Calendar.SATURDAY || dayOfWeek == Calendar.SUNDAY
     }
     
     private fun isEndOfMonth(): Boolean {
@@ -894,16 +894,51 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
         return today == lastDayOfMonth
     }
     
-    private fun calculateMonthlyExpenseCount(): Int {
-        // Calculate expenses tracked this month
-        // For now, return based on weekly count
-        return _progress.value.expensesTracked * 4
+    private suspend fun calculateMonthlyExpenseCount(): Int {
+        return try {
+            val calendar = Calendar.getInstance()
+            val now = System.currentTimeMillis()
+            
+            // Get this month's expenses
+            calendar.set(Calendar.DAY_OF_MONTH, 1)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val monthStart = calendar.timeInMillis
+            
+            val expenseFlow = expenseDao.getExpensesInRange(monthStart, now)
+            val expenseList = expenseFlow.first()
+            expenseList.size
+        } catch (e: Exception) {
+            println("DEBUG: Error calculating monthly expense count: ${e.message}")
+            0
+        }
     }
     
-    private fun calculateMonthlySavings(): Double {
-        // Calculate savings this month
-        // For now, return based on weekly savings
-        return _progress.value.weeklySavings * 4
+    private suspend fun calculateMonthlySavings(): Double {
+        return try {
+            val calendar = Calendar.getInstance()
+            val now = System.currentTimeMillis()
+            
+            // Get this month's expenses
+            calendar.set(Calendar.DAY_OF_MONTH, 1)
+            calendar.set(Calendar.HOUR_OF_DAY, 0)
+            calendar.set(Calendar.MINUTE, 0)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            val monthStart = calendar.timeInMillis
+            
+            val expenseFlow = expenseDao.getExpensesInRange(monthStart, now)
+            val expenseList = expenseFlow.first()
+            val totalSpent = expenseList.sumOf { it.amount }
+            
+            // Assuming monthly budget of R20,000
+            maxOf(0.0, 20000.0 - totalSpent)
+        } catch (e: Exception) {
+            println("DEBUG: Error calculating monthly savings: ${e.message}")
+            0.0
+        }
     }
     
     private fun calculateCategorySpending(categoryName: String): Double {
