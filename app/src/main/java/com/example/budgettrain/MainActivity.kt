@@ -1,5 +1,7 @@
 package com.example.budgettrain
 
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,8 +21,10 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -46,7 +50,8 @@ class MainActivity : ComponentActivity() {
                     BottomItem.Expenses,
                     BottomItem.Reports,
                     BottomItem.Goals,
-                    BottomItem.Rewards
+                    BottomItem.Rewards,
+                    BottomItem.Logout
                 )
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -104,6 +109,18 @@ class MainActivity : ComponentActivity() {
                         composable(BottomItem.Reports.route) { ReportsScreen() }
                         composable(BottomItem.Goals.route) { BudgetGoalsScreen() }
                         composable(BottomItem.Rewards.route) { RewardsScreen() }
+                        composable(BottomItem.Logout.route) {
+                            val context = LocalContext.current
+                            LaunchedEffect(Unit) {
+                                val intent = Intent(context, LogoutActivity::class.java)
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                context.startActivity(intent)
+                                if (context is Activity) {
+                                    context.finish()
+                                }
+                            }
+                            Text("Logging out…")
+                        }
 
                         composable("add_expense") {
                             AddExpenseScreen(
@@ -124,6 +141,7 @@ private sealed class BottomItem(val route: String, val label: String, val icon: 
     data object Reports : BottomItem("reports", "Reports", Icons.Filled.Assessment)
     data object Goals : BottomItem("goals", "Goals", Icons.Filled.Flag)
     data object Rewards : BottomItem("rewards", "Rewards", Icons.Filled.Star)
+    data object Logout : BottomItem("logout", "Logout", Icons.Filled.Flag)
 
 }
 
