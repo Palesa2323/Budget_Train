@@ -20,7 +20,7 @@ It combines **expense tracking**, **goal setting**, and **gamification** to help
 
 ## 🖥️ Tech Stack
 - **IDE:** Android Studio  
-- **Language:** Kotlin / Java
+- **Language:** Kotlin / Java  
 - **Database:** RoomDB (Local Encrypted)  
 - **UI:** Material Design Components  
 - **Min SDK:** Android 8.0 (API 26)  
@@ -37,22 +37,21 @@ It combines **expense tracking**, **goal setting**, and **gamification** to help
 7. **Badges:** Track gamified achievements  
 8. **Logout:** End session securely  
 
+---
+
 ## 🎥 Demo
-🎬 [Watch Demo Video]([(https://youtu.be/HGRjWE0wojM))
+🎬 [Watch Demo Video](https://youtu.be/HGRjWE0wojM)
 
 ---
 
-## 👩🏽‍💻 Developer
-**Palesa Gaetsewe**  
-**Keegan Naidoo**
-**Faraaz Suffla**
-Mobile Application Development – 2025  
+## 👩🏽‍💻 Developers
+- **Palesa Gaetsewe**  
+- **Keegan Naidoo**  
+- **Faraaz Suffla**  
+
+**Module:** Mobile Application Development – 2025  
 
 ---
 
 ## 📝 License
 For educational use only. Redistribution or commercial use prohibited.
-
-
-## 🚀 Summary
-Budget Train makes budgeting simple, smart, and rewarding — helping users stay financially on track, one stop at a time.
