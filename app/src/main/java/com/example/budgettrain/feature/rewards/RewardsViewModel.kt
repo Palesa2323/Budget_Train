@@ -8,7 +8,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import com.example.budgettrain.data.db.DatabaseProvider
+import com.example.budgettrain.data.repository.FirebaseRepository
+import com.example.budgettrain.data.repository.FirebaseAuthRepository
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -96,7 +97,7 @@ data class RewardProgress(
 
 class RewardsViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val expenseDao = DatabaseProvider.get(application).expenseDao()
+    private val authRepository = FirebaseAuthRepository()
     
     private val _rewards = MutableStateFlow<List<Reward>>(emptyList())
     val rewards: StateFlow<List<Reward>> = _rewards.asStateFlow()
@@ -142,7 +143,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis
             
-            val expenseFlow = expenseDao.getExpensesInRange(weekStart, now)
+            val userId = authRepository.currentUserId
+            val expenseFlow = FirebaseRepository.getExpensesInRange(userId, weekStart, now)
             
             // Calculate metrics
             var expensesCount = 0
@@ -672,7 +674,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
     
     private suspend fun calculateExpenseFreedays(): Int {
         return try {
-            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            val userId = authRepository.currentUserId
+            val expenseList = FirebaseRepository.getExpensesWithCategory(userId).first()
             val calendar = Calendar.getInstance()
             val today = calendar.timeInMillis
             
@@ -716,7 +719,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
     
     private suspend fun calculateDailySpending(): Double {
         return try {
-            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            val userId = authRepository.currentUserId
+            val expenseList = FirebaseRepository.getExpensesWithCategory(userId).first()
             val calendar = Calendar.getInstance()
             val today = calendar.timeInMillis
             
@@ -748,7 +752,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
     
     private suspend fun calculateMorningTracking(): Int {
         return try {
-            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            val userId = authRepository.currentUserId
+            val expenseList = FirebaseRepository.getExpensesWithCategory(userId).first()
             val calendar = Calendar.getInstance()
             val today = calendar.timeInMillis
             
@@ -806,7 +811,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
     
     private suspend fun calculateCategoryDiversity(): Int {
         return try {
-            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            val userId = authRepository.currentUserId
+            val expenseList = FirebaseRepository.getExpensesWithCategory(userId).first()
             val calendar = Calendar.getInstance()
             val today = calendar.timeInMillis
             
@@ -834,7 +840,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
     
     private suspend fun calculateWeekendSpending(): Double {
         return try {
-            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            val userId = authRepository.currentUserId
+            val expenseList = FirebaseRepository.getExpensesWithCategory(userId).first()
             val calendar = Calendar.getInstance()
             val today = calendar.timeInMillis
             
@@ -872,7 +879,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
     
     private suspend fun hasAnyExpenses(): Boolean {
         return try {
-            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            val userId = authRepository.currentUserId
+            val expenseList = FirebaseRepository.getExpensesWithCategory(userId).first()
             expenseList.isNotEmpty()
         } catch (e: Exception) {
             println("DEBUG: Error checking for expenses: ${e.message}")
@@ -907,7 +915,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
             calendar.set(Calendar.MILLISECOND, 0)
             val monthStart = calendar.timeInMillis
             
-            val expenseFlow = expenseDao.getExpensesInRange(monthStart, now)
+            val userId = authRepository.currentUserId
+            val expenseFlow = FirebaseRepository.getExpensesInRange(userId, monthStart, now)
             val expenseList = expenseFlow.first()
             expenseList.size
         } catch (e: Exception) {
@@ -929,7 +938,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
             calendar.set(Calendar.MILLISECOND, 0)
             val monthStart = calendar.timeInMillis
             
-            val expenseFlow = expenseDao.getExpensesInRange(monthStart, now)
+            val userId = authRepository.currentUserId
+            val expenseFlow = FirebaseRepository.getExpensesInRange(userId, monthStart, now)
             val expenseList = expenseFlow.first()
             val totalSpent = expenseList.sumOf { it.amount }
             
@@ -953,7 +963,8 @@ class RewardsViewModel(application: Application) : AndroidViewModel(application)
     
     private suspend fun calculateEveningTracking(): Int {
         return try {
-            val expenseList = expenseDao.getAllExpensesWithCategory().first()
+            val userId = authRepository.currentUserId
+            val expenseList = FirebaseRepository.getExpensesWithCategory(userId).first()
             val calendar = Calendar.getInstance()
             val today = calendar.timeInMillis
             

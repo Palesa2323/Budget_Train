@@ -3,8 +3,7 @@ package com.example.budgettrain.feature.dashboard
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.budgettrain.data.dao.CategoryTotal
-import com.example.budgettrain.data.db.DatabaseProvider
+import com.example.budgettrain.data.repository.FirebaseRepository
 import com.example.budgettrain.data.entity.Expense
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
