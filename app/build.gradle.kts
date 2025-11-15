@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.devtools.ksp)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -77,6 +78,12 @@ ksp(libs.androidx.room.compiler)
 
 // Images (Compose)
 implementation(libs.coil.compose)
+
+// Firebase
+implementation(platform(libs.firebase.bom))
+implementation(libs.firebase.auth.ktx)
+implementation(libs.firebase.firestore.ktx)
+implementation(libs.firebase.storage.ktx)
 
 testImplementation(libs.junit)
 androidTestImplementation(libs.androidx.junit)

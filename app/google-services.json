@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "967743365322",
+    "project_id": "budgettrain-3d48a",
+    "storage_bucket": "budgettrain-3d48a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:967743365322:android:46b129e37755bd9d5bd433",
+        "android_client_info": {
+          "package_name": "com.example.budgettrain"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAi3CgSMLVgAyb1jVDb3TGybwM8v_Re7zo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

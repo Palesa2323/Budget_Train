@@ -3,14 +3,16 @@ package com.example.budgettrain.feature.expense
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.budgettrain.data.dao.ExpenseWithCategory
-import com.example.budgettrain.data.db.DatabaseProvider
+import com.example.budgettrain.data.repository.FirebaseRepository
+import com.example.budgettrain.data.repository.FirebaseAuthRepository
 import com.example.budgettrain.data.entity.Expense
 import com.example.budgettrain.data.entity.Category
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+typealias ExpenseWithCategory = FirebaseRepository.ExpenseWithCategory
 
 data class ExpenseState(
     val categories: List<Pair<Long, String>> = emptyList(),
@@ -23,18 +25,19 @@ data class ExpenseState(
 )
 
 class ExpenseViewModel(app: Application) : AndroidViewModel(app) {
-    private val db = DatabaseProvider.get(app)
+    private val authRepository = FirebaseAuthRepository()
     private val _state = MutableStateFlow(ExpenseState())
     val state: StateFlow<ExpenseState> = _state.asStateFlow()
 
     init {
+        val userId = authRepository.currentUserId
         viewModelScope.launch {
-            db.categoryDao().getAll().collect { cats ->
+            FirebaseRepository.getAllCategories(userId).collect { cats ->
                 _state.value = _state.value.copy(categories = cats.map { it.id to it.name })
             }
         }
         viewModelScope.launch {
-            db.expenseDao().getAllExpensesWithCategory().collect { rows ->
+            FirebaseRepository.getExpensesWithCategory(userId).collect { rows ->
                 _state.value = _state.value.copy(expenses = rows, filteredExpenses = rows)
             }
         }
@@ -65,7 +68,7 @@ class ExpenseViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 _state.value = _state.value.copy(saving = true, error = null)
-                db.expenseDao().insert(
+                FirebaseRepository.addExpense(
                     Expense(
                         userId = userId,
                         categoryId = categoryId,
@@ -115,13 +118,18 @@ class ExpenseViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 _state.value = _state.value.copy(saving = true, error = null)
+                val firebaseUserId = authRepository.currentUserId
                 val resolvedCategoryId: Long = if (trimmed.isNotEmpty()) {
-                    val existing = db.categoryDao().getByName(trimmed)
-                    existing?.id ?: db.categoryDao().upsert(Category(userId = userId, name = trimmed, color = 0xFF607D8B))
+                    val existing = FirebaseRepository.getCategoryByName(firebaseUserId, trimmed)
+                    existing?.id ?: run {
+                        val newCategory = Category(userId = userId, name = trimmed, color = 0xFF607D8B)
+                        FirebaseRepository.addCategory(newCategory)
+                        newCategory.id
+                    }
                 } else {
                     fallbackCategoryId!!
                 }
-                db.expenseDao().insert(
+                FirebaseRepository.addExpense(
                     Expense(
                         userId = userId,
                         categoryId = resolvedCategoryId,
@@ -148,7 +156,9 @@ class ExpenseViewModel(app: Application) : AndroidViewModel(app) {
                     Category(userId = userId, name = "Food", color = 0xFF4CAF50),
                     Category(userId = userId, name = "Transport", color = 0xFF2196F3)
                 )
-                db.categoryDao().upsertAll(defaults)
+                defaults.forEach { category ->
+                    FirebaseRepository.addCategory(category)
+                }
             } catch (t: Throwable) {
                 _state.value = _state.value.copy(error = t.message)
             }
@@ -158,7 +168,11 @@ class ExpenseViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteExpense(id: Long) {
         viewModelScope.launch {
             try {
-                db.expenseDao().deleteById(id)
+                // Note: Firebase uses document IDs, but we're using hash of ID
+                // This is a limitation - we'd need to store Firebase document IDs
+                // For now, we'll need to find the expense by other means
+                // This is a simplified implementation
+                _state.value = _state.value.copy(error = "Delete not fully implemented - need Firebase document ID")
             } catch (t: Throwable) {
                 _state.value = _state.value.copy(error = t.message)
             }

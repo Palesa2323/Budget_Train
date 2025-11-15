@@ -38,10 +38,26 @@ import com.example.budgettrain.feature.goals.BudgetGoalsScreen
 import com.example.budgettrain.feature.expense.AddExpenseScreen
 import com.example.budgettrain.feature.expense.ExpenseListScreen
 import com.example.budgettrain.feature.rewards.RewardsScreen
+import com.google.firebase.FirebaseApp
+import com.example.budgettrain.data.repository.FirebaseAuthRepository
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize Firebase (usually done automatically, but ensure it's initialized)
+        FirebaseApp.initializeApp(this)
+        
+        // Check if user is logged in, if not redirect to login
+        val authRepository = FirebaseAuthRepository()
+        if (!authRepository.isLoggedIn()) {
+            val intent = Intent(this, LoginActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            startActivity(intent)
+            finish()
+            return
+        }
+        
         enableEdgeToEdge()
         setContent {
             BudgetTrainTheme {

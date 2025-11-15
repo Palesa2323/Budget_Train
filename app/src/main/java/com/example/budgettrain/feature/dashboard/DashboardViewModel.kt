@@ -50,7 +50,7 @@ data class DashboardState(
 )
 
 class DashboardViewModel(app: Application) : AndroidViewModel(app) {
-    private val db = DatabaseProvider.get(app)
+    private val authRepository = com.example.budgettrain.data.repository.FirebaseAuthRepository()
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state
 
@@ -65,10 +65,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
             // Load all expenses instead of just current month
             // We'll still calculate current month stats separately
             val (startOfMonth, now) = currentMonthRange()
+            val userId = authRepository.currentUserId
 
             // Combine all expenses, current month expenses, category totals for all time, and categories
             combine(
-                db.expenseDao().getAllExpensesWithCategory().map { it.map { expenseWithCategory ->
+                com.example.budgettrain.data.repository.FirebaseRepository.getExpensesWithCategory(userId).map { it.map { expenseWithCategory ->
                     Expense(
                         id = expenseWithCategory.id,
                         userId = expenseWithCategory.userId,
@@ -81,9 +82,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                         imagePath = expenseWithCategory.imagePath
                     )
                 }},
-                db.expenseDao().getExpensesInRange(startOfMonth, now),
-                db.expenseDao().getCategoryTotals(startOfMonth, now),
-                db.categoryDao().getAll()
+                com.example.budgettrain.data.repository.FirebaseRepository.getExpensesInRange(userId, startOfMonth, now),
+                com.example.budgettrain.data.repository.FirebaseRepository.getCategoryTotals(userId, startOfMonth, now),
+                com.example.budgettrain.data.repository.FirebaseRepository.getAllCategories(userId)
             ) { allExpenses, currentMonthExpenses, totals, categories ->
                 Quadruple(allExpenses, currentMonthExpenses, totals, categories)
             }.collect { (allExpenses, currentMonthExpenses, totals, categories) ->
@@ -128,9 +129,18 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 // Use all expenses for daily trend, but limit to reasonable range
                 val daily = buildDailyTrend(allExpenses, startOfMonth, now)
 
+                // Get username from Firebase (async)
+                val username = authRepository.currentUser?.let { user ->
+                    try {
+                        com.example.budgettrain.data.repository.FirebaseRepository.getUserProfile(user.uid)?.get("username") as? String
+                    } catch (e: Exception) {
+                        null
+                    }
+                } ?: "User"
+                
                 _state.value = _state.value.copy(
                     isLoading = false,
-                    username = "User", // TODO: Get from user preferences or authentication
+                    username = username,
                     totalSpentThisMonth = totalSpent, // Now shows all-time total
                     expenseCountThisMonth = expenseCount, // Now shows all-time count
                     averageExpenseThisMonth = average, // Now shows all-time average
