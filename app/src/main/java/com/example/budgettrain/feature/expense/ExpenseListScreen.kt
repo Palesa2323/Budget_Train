@@ -27,7 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.budgettrain.data.dao.ExpenseWithCategory
+import com.example.budgettrain.data.repository.FirebaseRepository
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -127,7 +127,37 @@ fun ExpenseListScreen(vm: ExpenseViewModel = viewModel()) {
             }
         }
         
-        if (state.filteredExpenses.isEmpty()) {
+        // Show error if any
+        if (!state.error.isNullOrBlank()) {
+            item {
+                Card(
+                    elevation = CardDefaults.cardElevation(4.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            "Error: ${state.error}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color(0xFFD32F2F),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Check Logcat for detailed error messages. Common issues:\n" +
+                            "1. Firestore security rules not configured\n" +
+                            "2. Missing composite indexes (check Firebase Console)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF757575)
+                        )
+                    }
+                }
+            }
+        }
+        
+        if (state.filteredExpenses.isEmpty() && state.error.isNullOrBlank()) {
             item {
                 Card(
                     elevation = CardDefaults.cardElevation(4.dp),
@@ -146,8 +176,8 @@ fun ExpenseListScreen(vm: ExpenseViewModel = viewModel()) {
                     }
                 }
             }
-        } else {
-            items(state.filteredExpenses) { row ->
+        } else if (state.filteredExpenses.isNotEmpty()) {
+            items(state.filteredExpenses) { row: FirebaseRepository.ExpenseWithCategory ->
                 Card(
                     elevation = CardDefaults.cardElevation(4.dp), 
                     modifier = Modifier.fillMaxWidth(),

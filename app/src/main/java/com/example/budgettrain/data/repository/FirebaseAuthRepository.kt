@@ -15,13 +15,16 @@ class FirebaseAuthRepository {
 
     suspend fun register(email: String, password: String, username: String): Result<FirebaseUser> {
         return try {
+            android.util.Log.d("FirebaseAuth", "Attempting to register user: $email")
             val result = auth.createUserWithEmailAndPassword(email, password).await()
+            android.util.Log.d("FirebaseAuth", "User registered successfully with UID: ${result.user?.uid}")
             // Store username in Firestore user document
             result.user?.let { user ->
                 FirebaseRepository.updateUserProfile(user.uid, username, email)
             }
             Result.success(result.user!!)
         } catch (e: Exception) {
+            android.util.Log.e("FirebaseAuth", "Registration failed: ${e.message}", e)
             Result.failure(e)
         }
     }

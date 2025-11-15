@@ -31,14 +31,26 @@ class ExpenseViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         val userId = authRepository.currentUserId
-        viewModelScope.launch {
-            FirebaseRepository.getAllCategories(userId).collect { cats ->
-                _state.value = _state.value.copy(categories = cats.map { it.id to it.name })
+        android.util.Log.d("ExpenseViewModel", "Initializing ExpenseViewModel with userId: $userId")
+        if (userId == null) {
+            _state.value = _state.value.copy(error = "User not logged in")
+        } else {
+            viewModelScope.launch {
+                FirebaseRepository.getAllCategories(userId).collect { cats ->
+                    android.util.Log.d("ExpenseViewModel", "Received ${cats.size} categories")
+                    _state.value = _state.value.copy(categories = cats.map { it.id to it.name })
+                }
             }
-        }
-        viewModelScope.launch {
-            FirebaseRepository.getExpensesWithCategory(userId).collect { rows ->
-                _state.value = _state.value.copy(expenses = rows, filteredExpenses = rows)
+            viewModelScope.launch {
+                FirebaseRepository.getExpensesWithCategory(userId).collect { rows ->
+                    android.util.Log.d("ExpenseViewModel", "Received ${rows.size} expenses with categories")
+                    if (rows.isEmpty() && _state.value.expenses.isEmpty()) {
+                        // Only show error if we've been waiting and still have no data
+                        // This helps identify if it's a real error vs just no data yet
+                        android.util.Log.w("ExpenseViewModel", "No expenses found. Check Logcat for Firestore errors.")
+                    }
+                    _state.value = _state.value.copy(expenses = rows, filteredExpenses = rows)
+                }
             }
         }
     }
@@ -119,19 +131,25 @@ class ExpenseViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 _state.value = _state.value.copy(saving = true, error = null)
                 val firebaseUserId = authRepository.currentUserId
+                    ?: throw IllegalStateException("User not logged in")
+                
+                // Convert Firebase UID string to Long using hashCode for consistency
+                val firebaseUserIdLong = firebaseUserId.hashCode().toLong()
+                
                 val resolvedCategoryId: Long = if (trimmed.isNotEmpty()) {
                     val existing = FirebaseRepository.getCategoryByName(firebaseUserId, trimmed)
                     existing?.id ?: run {
-                        val newCategory = Category(userId = userId, name = trimmed, color = 0xFF607D8B)
-                        FirebaseRepository.addCategory(newCategory)
-                        newCategory.id
+                        val newCategory = Category(userId = firebaseUserIdLong, name = trimmed, color = 0xFF607D8B)
+                        val categoryDocId = FirebaseRepository.addCategory(newCategory)
+                        // Convert Firebase document ID to Long using hashCode for consistency
+                        categoryDocId.hashCode().toLong()
                     }
                 } else {
                     fallbackCategoryId!!
                 }
-                FirebaseRepository.addExpense(
+                val expenseDocId = FirebaseRepository.addExpense(
                     Expense(
-                        userId = userId,
+                        userId = firebaseUserIdLong,
                         categoryId = resolvedCategoryId,
                         amount = amount,
                         date = date,
@@ -141,6 +159,7 @@ class ExpenseViewModel(app: Application) : AndroidViewModel(app) {
                         imagePath = imagePath
                     )
                 )
+                android.util.Log.d("ExpenseViewModel", "Expense saved successfully with document ID: $expenseDocId")
                 _state.value = _state.value.copy(saving = false)
             } catch (t: Throwable) {
                 _state.value = _state.value.copy(saving = false, error = t.message)
