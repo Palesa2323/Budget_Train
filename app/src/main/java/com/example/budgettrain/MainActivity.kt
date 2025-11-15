@@ -14,12 +14,12 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -128,15 +128,24 @@ class MainActivity : ComponentActivity() {
                         composable(BottomItem.Rewards.route) { RewardsScreen() }
                         composable(BottomItem.Logout.route) {
                             val context = LocalContext.current
-                            LaunchedEffect(Unit) {
-                                val intent = Intent(context, LogoutActivity::class.java)
-                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                                context.startActivity(intent)
-                                if (context is Activity) {
-                                    context.finish()
+                            LogoutScreen(
+                                onLogout = {
+                                    val intent = Intent(context, LogoutActivity::class.java)
+                                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                    context.startActivity(intent)
+                                    if (context is Activity) {
+                                        context.finish()
+                                    }
+                                },
+                                onStayLoggedIn = {
+                                    navController.navigate(BottomItem.Dashboard.route) {
+                                        popUpTo(navController.graph.startDestinationId) {
+                                            inclusive = false
+                                        }
+                                        launchSingleTop = true
+                                    }
                                 }
-                            }
-                            Text("Logging out…")
+                            )
                         }
 
                         composable("add_expense") {
@@ -148,6 +157,78 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun LogoutScreen(
+    onLogout: () -> Unit,
+    onStayLoggedIn: () -> Unit
+) {
+    val authRepository = FirebaseAuthRepository()
+    val currentUser = authRepository.currentUser
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Logout",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF2196F3),
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+        
+        Text(
+            text = if (currentUser != null) {
+                "You are currently logged in as:\n${currentUser.email ?: "User"}"
+            } else {
+                "You are currently logged in"
+            },
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color(0xFF757575),
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Button(
+            onClick = onLogout,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFF44336)
+            )
+        ) {
+            Text(
+                text = "Log Out",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        OutlinedButton(
+            onClick = onStayLoggedIn,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = Color(0xFF2196F3)
+            )
+        ) {
+            Text(
+                text = "Stay Logged In",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
