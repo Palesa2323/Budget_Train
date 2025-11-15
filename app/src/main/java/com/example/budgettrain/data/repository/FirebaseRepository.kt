@@ -166,30 +166,95 @@ object FirebaseRepository {
     }
 
     suspend fun deleteExpense(expenseId: String) {
-        db.collection("expenses").document(expenseId).delete().await()
+        try {
+            android.util.Log.d("FirebaseRepository", "Deleting expense with document ID: $expenseId")
+            db.collection("expenses").document(expenseId).delete().await()
+            android.util.Log.d("FirebaseRepository", "Expense deleted successfully")
+        } catch (e: Exception) {
+            android.util.Log.e("FirebaseRepository", "Error deleting expense: ${e.message}", e)
+            throw e
+        }
     }
 
-    fun getExpensesWithCategory(userId: String? = null): Flow<List<ExpenseWithCategory>> {
-        return combine(
-            getAllExpenses(userId),
-            getAllCategories(userId)
-        ) { expenses, categories ->
-            val categoryMap = categories.associateBy { it.id.toString() }
-            expenses.map { expense ->
-                val category = categoryMap[expense.categoryId.toString()]
+    fun getExpensesWithCategory(userId: String? = null): Flow<List<ExpenseWithCategory>> = callbackFlow {
+        val expenseQuery = if (userId != null) {
+            // Convert Firebase UID string to Long using hashCode for consistency with how we save
+            val userIdLong = userId.hashCode().toLong()
+            db.collection("expenses")
+                .whereEqualTo("userId", userIdLong.toString())
+                .orderBy("date", Query.Direction.DESCENDING)
+        } else {
+            db.collection("expenses")
+                .orderBy("date", Query.Direction.DESCENDING)
+        }
+        
+        val categoryQuery = if (userId != null) {
+            val userIdLong = userId.hashCode().toLong()
+            db.collection("categories")
+                .whereEqualTo("userId", userIdLong.toString())
+                .orderBy("name")
+        } else {
+            db.collection("categories")
+                .orderBy("name")
+        }
+        
+        var expenseRegistration: ListenerRegistration? = null
+        var categoryRegistration: ListenerRegistration? = null
+        var latestExpenses: List<com.google.firebase.firestore.QueryDocumentSnapshot> = emptyList()
+        var latestCategories: List<com.google.firebase.firestore.QueryDocumentSnapshot> = emptyList()
+        
+        fun updateExpensesWithCategory() {
+            val categoryMap = latestCategories.associateBy { 
+                it.id.hashCode().toLong().toString() 
+            }
+            val expenses = latestExpenses.map { doc ->
+                val expenseUserId = (doc.get("userId") as? String)?.toLongOrNull() ?: 0L
+                val expenseCategoryId = (doc.get("categoryId") as? String)?.toLongOrNull() ?: 0L
+                val category = categoryMap[expenseCategoryId.toString()]
                 ExpenseWithCategory(
-                    id = expense.id,
-                    userId = expense.userId,
-                    categoryId = expense.categoryId,
-                    amount = expense.amount,
-                    date = expense.date,
-                    startTime = expense.startTime,
-                    endTime = expense.endTime,
-                    description = expense.description,
-                    imagePath = expense.imagePath,
-                    categoryName = category?.name ?: "Uncategorized"
+                    id = doc.id.hashCode().toLong(),
+                    documentId = doc.id, // Store the actual Firebase document ID
+                    userId = expenseUserId,
+                    categoryId = expenseCategoryId,
+                    amount = (doc.get("amount") as? Number)?.toDouble() ?: 0.0,
+                    date = (doc.get("date") as? Number)?.toLong() ?: 0L,
+                    startTime = (doc.get("startTime") as? String)?.takeIf { it.isNotEmpty() }?.toLongOrNull(),
+                    endTime = (doc.get("endTime") as? String)?.takeIf { it.isNotEmpty() }?.toLongOrNull(),
+                    description = doc.get("description") as? String,
+                    imagePath = doc.get("imagePath") as? String,
+                    categoryName = category?.get("name") as? String ?: "Uncategorized"
                 )
             }
+            trySend(expenses)
+        }
+        
+        expenseRegistration = expenseQuery.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                android.util.Log.e("FirebaseRepository", "Error getting expenses: ${error.message}", error)
+                trySend(emptyList())
+                return@addSnapshotListener
+            }
+            latestExpenses = snapshot?.documents?.mapNotNull { 
+                it as? com.google.firebase.firestore.QueryDocumentSnapshot 
+            } ?: emptyList()
+            updateExpensesWithCategory()
+        }
+        
+        categoryRegistration = categoryQuery.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                android.util.Log.e("FirebaseRepository", "Error getting categories: ${error.message}", error)
+                // Don't send empty list on category error, just log it
+                return@addSnapshotListener
+            }
+            latestCategories = snapshot?.documents?.mapNotNull { 
+                it as? com.google.firebase.firestore.QueryDocumentSnapshot 
+            } ?: emptyList()
+            updateExpensesWithCategory()
+        }
+        
+        awaitClose {
+            expenseRegistration?.remove()
+            categoryRegistration?.remove()
         }
     }
 
@@ -232,6 +297,17 @@ object FirebaseRepository {
             "color" to (category.color ?: 0xFF607D8B)
         )
         db.collection("categories").document(categoryId).set(categoryMap).await()
+    }
+
+    suspend fun deleteCategory(categoryId: String) {
+        try {
+            android.util.Log.d("FirebaseRepository", "Deleting category with document ID: $categoryId")
+            db.collection("categories").document(categoryId).delete().await()
+            android.util.Log.d("FirebaseRepository", "Category deleted successfully")
+        } catch (e: Exception) {
+            android.util.Log.e("FirebaseRepository", "Error deleting category: ${e.message}", e)
+            throw e
+        }
     }
 
     fun getAllCategories(userId: String? = null): Flow<List<Category>> = callbackFlow {
@@ -303,6 +379,27 @@ object FirebaseRepository {
         }
     }
 
+    suspend fun getCategoryDocumentIdByName(userId: String?, name: String): String? {
+        return try {
+            val query = if (userId != null) {
+                val userIdLong = userId.hashCode().toLong()
+                db.collection("categories")
+                    .whereEqualTo("userId", userIdLong.toString())
+                    .whereEqualTo("name", name)
+                    .limit(1)
+            } else {
+                db.collection("categories")
+                    .whereEqualTo("name", name)
+                    .limit(1)
+            }
+            
+            val snapshot = query.get().await()
+            snapshot.documents.firstOrNull()?.id
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     // Budget Goal operations
     suspend fun addBudgetGoal(goal: BudgetGoalEntity): String {
         val goalMap = mapOf(
@@ -365,6 +462,7 @@ object FirebaseRepository {
     // Data classes for compatibility
     data class ExpenseWithCategory(
         val id: Long,
+        val documentId: String, // Firebase document ID for deletion
         val userId: Long,
         val categoryId: Long,
         val amount: Double,

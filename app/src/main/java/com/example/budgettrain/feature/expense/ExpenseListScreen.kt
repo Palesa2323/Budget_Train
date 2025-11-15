@@ -245,7 +245,7 @@ fun ExpenseListScreen(vm: ExpenseViewModel = viewModel()) {
                                 }
                             }
                             OutlinedButton(
-                                onClick = { vm.deleteExpense(row.id) }
+                                onClick = { vm.deleteExpense(row.documentId) }
                             ) { 
                                 Text(
                                     "Delete",

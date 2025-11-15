@@ -3,15 +3,15 @@ package com.example.budgettrain.feature.reports
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.budgettrain.data.dao.CategoryTotal
-import com.example.budgettrain.data.db.DatabaseProvider
+import com.example.budgettrain.data.repository.FirebaseRepository
+import com.example.budgettrain.data.repository.FirebaseAuthRepository
 import com.example.budgettrain.data.entity.Expense
-import com.example.budgettrain.data.entity.Category
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -20,7 +20,7 @@ data class ReportsState(
     val startMillis: Long = 0L,
     val endMillis: Long = 0L,
     val expenses: List<Expense> = emptyList(),
-    val categoryTotals: List<CategoryTotal> = emptyList(),
+    val categoryTotals: List<FirebaseRepository.CategoryTotal> = emptyList(),
     val previousPeriodExpenses: List<Expense> = emptyList(),
     val loading: Boolean = false,
     val error: String? = null,
@@ -28,7 +28,7 @@ data class ReportsState(
 )
 
 class ReportsViewModel(app: Application) : AndroidViewModel(app) {
-    private val db = DatabaseProvider.get(app)
+    private val authRepository = FirebaseAuthRepository()
     private val _state = MutableStateFlow(ReportsState())
     val state: StateFlow<ReportsState> = _state.asStateFlow()
     private var loadJob: Job? = null
@@ -73,30 +73,39 @@ class ReportsViewModel(app: Application) : AndroidViewModel(app) {
         loadJob = viewModelScope.launch {
             _state.update { it.copy(loading = true, error = null) }
             try {
-                combine(
-                    db.expenseDao().getExpensesInRange(start, end),
-                    db.expenseDao().getCategoryTotals(start, end),
-                    db.expenseDao().getExpensesInRange(previousStart, previousEnd)
+                val userId = authRepository.currentUserId
+                
+                // Use first() to get a single emission from each flow instead of collecting indefinitely
+                // This prevents the coroutine from being cancelled
+                val (expenses, totals, previousExpenses) = combine(
+                    FirebaseRepository.getExpensesInRange(userId, start, end),
+                    FirebaseRepository.getCategoryTotals(userId, start, end),
+                    FirebaseRepository.getExpensesInRange(userId, previousStart, previousEnd)
                 ) { expenses, totals, previousExpenses ->
                     Triple(expenses, totals, previousExpenses)
-                }.collect { (expenses, totals, previousExpenses) ->
-                    _state.update { 
-                        it.copy(
-                            expenses = expenses, 
-                            categoryTotals = totals, 
-                            previousPeriodExpenses = previousExpenses,
-                            loading = false,
-                            hasLoadedData = true
-                        ) 
-                    }
+                }.first()
+                
+                _state.update { 
+                    it.copy(
+                        expenses = expenses, 
+                        categoryTotals = totals, 
+                        previousPeriodExpenses = previousExpenses,
+                        loading = false,
+                        hasLoadedData = true,
+                        error = null
+                    ) 
                 }
             } catch (t: Throwable) {
-                _state.update { it.copy(loading = false, error = t.message) }
+                android.util.Log.e("ReportsViewModel", "Error loading reports: ${t.message}", t)
+                _state.update { 
+                    it.copy(
+                        loading = false, 
+                        error = "Failed to load reports: ${t.message ?: "Unknown error"}"
+                    ) 
+                }
             }
         }
     }
-
-    // Demo seeding removed now that real expense creation is available
 }
 
 

@@ -41,7 +41,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import com.example.budgettrain.data.dao.CategoryTotal
+import com.example.budgettrain.data.repository.FirebaseRepository
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
@@ -768,7 +768,7 @@ private fun dayKey(timeMs: Long): String {
 
 @Composable
 private fun CategoryPieChart(
-    categoryTotals: List<CategoryTotal>,
+    categoryTotals: List<FirebaseRepository.CategoryTotal>,
     totalSpent: Double,
     modifier: Modifier = Modifier
 ) {
@@ -927,7 +927,7 @@ private fun CategoryPieChart(
 }
 
 @Composable
-private fun CategoryTotalsList(totalsFlow: List<CategoryTotal>, totalSpent: Double) {
+private fun CategoryTotalsList(totalsFlow: List<FirebaseRepository.CategoryTotal>, totalSpent: Double) {
     if (totalsFlow.isEmpty()) {
         Text("No data for selected range")
     } else {

@@ -184,16 +184,50 @@ class ExpenseViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun deleteExpense(id: Long) {
+    fun deleteExpense(documentId: String) {
         viewModelScope.launch {
             try {
-                // Note: Firebase uses document IDs, but we're using hash of ID
-                // This is a limitation - we'd need to store Firebase document IDs
-                // For now, we'll need to find the expense by other means
-                // This is a simplified implementation
-                _state.value = _state.value.copy(error = "Delete not fully implemented - need Firebase document ID")
+                _state.value = _state.value.copy(error = null)
+                android.util.Log.d("ExpenseViewModel", "Deleting expense with document ID: $documentId")
+                FirebaseRepository.deleteExpense(documentId)
+                android.util.Log.d("ExpenseViewModel", "Expense deleted successfully")
             } catch (t: Throwable) {
-                _state.value = _state.value.copy(error = t.message)
+                android.util.Log.e("ExpenseViewModel", "Error deleting expense: ${t.message}", t)
+                _state.value = _state.value.copy(error = "Failed to delete expense: ${t.message}")
+            }
+        }
+    }
+
+    fun deleteCategory(documentId: String) {
+        viewModelScope.launch {
+            try {
+                _state.value = _state.value.copy(error = null)
+                android.util.Log.d("ExpenseViewModel", "Deleting category with document ID: $documentId")
+                FirebaseRepository.deleteCategory(documentId)
+                android.util.Log.d("ExpenseViewModel", "Category deleted successfully")
+            } catch (t: Throwable) {
+                android.util.Log.e("ExpenseViewModel", "Error deleting category: ${t.message}", t)
+                _state.value = _state.value.copy(error = "Failed to delete category: ${t.message}")
+            }
+        }
+    }
+
+    fun deleteCategoryByName(categoryName: String) {
+        viewModelScope.launch {
+            try {
+                _state.value = _state.value.copy(error = null)
+                val firebaseUserId = authRepository.currentUserId
+                    ?: throw IllegalStateException("User not logged in")
+                
+                val documentId = FirebaseRepository.getCategoryDocumentIdByName(firebaseUserId, categoryName)
+                    ?: throw IllegalArgumentException("Category '$categoryName' not found")
+                
+                android.util.Log.d("ExpenseViewModel", "Deleting category '$categoryName' with document ID: $documentId")
+                FirebaseRepository.deleteCategory(documentId)
+                android.util.Log.d("ExpenseViewModel", "Category deleted successfully")
+            } catch (t: Throwable) {
+                android.util.Log.e("ExpenseViewModel", "Error deleting category: ${t.message}", t)
+                _state.value = _state.value.copy(error = "Failed to delete category: ${t.message}")
             }
         }
     }
