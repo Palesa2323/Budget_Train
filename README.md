@@ -55,7 +55,7 @@ Smart Tips provide personalized advice to users based on their current spending 
 - **Real-Time Analysis:** Evaluates spending vs. budget for each category.  
 - **Dynamic Tips:** Generates context-sensitive advice, such as:
   - “You’ve spent 80% of your dining budget halfway through the month. Consider cooking at home more.”  
-  - “You’ve saved 20% more than last month — keep it up!”  
+  - “You’ve saved 20% more than last month , keep it up!”  
 - **Multiple Tips Display:** Users can swipe through several tips.  
 - **Integration with Budgets:** Updates automatically as transactions are added or removed.
 
@@ -92,8 +92,8 @@ Smart Tips provide personalized advice to users based on their current spending 
 ---
 ## 🖥️ Tech Stack
 - **IDE:** Android Studio  
-- **Language:** Kotlin / Java  
-- **Database:** RoomDB (Local Encrypted)  
+- **Language:** Kotlin
+- **Database:** FireBase 
 - **UI:** Material Design Components  
 - **Min SDK:** Android 8.0 (API 26)  
 
@@ -113,7 +113,7 @@ Smart Tips provide personalized advice to users based on their current spending 
 ---
 
 ## 🎥 Demo
-🎬 [Watch Demo Video](https://youtu.be/HGRjWE0wojM)
+🎬 [Watch Demo Video](https://youtu.be/B6i1HLNpsXI) 
 
 ---
 
