@@ -16,7 +16,7 @@ The app aims to provide a **simple, visual, and interactive** experience while g
 - **Budgets & Alerts** – Set monthly limits and get smart notifications.  
 - **Visual Reports** – Charts and progress rings to show spending patterns.  
 - **Gamification** – Earn badges and achievements for consistent budgeting.  
-- **Offline Storage** – All data saved locally with SQLite encryption.  
+- **Offline Storage** – All data saved locally with FireBase.
 
 ---
 
@@ -73,9 +73,15 @@ Smart Tips provide personalized advice to users based on their current spending 
 ---
 
 ## 🖼️ Images / Screenshots
-![Dashboard](images/dashboard.png)  
-![Badges](images/badges.png)  
-![Smart Tips](images/smarttips.png)  
+
+### 🎯 App Rewards System
+![Rewards System](images/Reward.png)
+
+### 💡 Smart Tips on Home Screen
+![Smart Tips Feature](images/SmartTips.png)
+
+#### Example of Smart Tip:
+![Smart Tip Demo](images/SmartTips2.png)
 
 ---
 ## 📦 APK
