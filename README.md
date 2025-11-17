@@ -87,7 +87,7 @@ Smart Tips provide personalized advice to users based on their current spending 
 
 ---
 ## 📦 APK
-[Download APK]([apk/BudgetTrain.apk](https://drive.google.com/drive/folders/1qKmQZlian14E5PGOjRIvcoM0zR9JhyhZ?usp=drive_link))  
+[Download APK] [apk/BudgetTrain.apk](https://drive.google.com/drive/folders/1qKmQZlian14E5PGOjRIvcoM0zR9JhyhZ?usp=drive_link)
 
 ---
 ## 🖥️ Tech Stack
