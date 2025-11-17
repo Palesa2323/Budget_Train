@@ -72,6 +72,16 @@ Smart Tips provide personalized advice to users based on their current spending 
 
 ---
 
+## 🖼️ Images / Screenshots
+![Dashboard](images/dashboard.png)  
+![Badges](images/badges.png)  
+![Smart Tips](images/smarttips.png)  
+
+---
+## 📦 APK
+[Download APK](apk/BudgetTrain.apk)  
+
+---
 ## 🖥️ Tech Stack
 - **IDE:** Android Studio  
 - **Language:** Kotlin / Java  
@@ -111,8 +121,3 @@ Smart Tips provide personalized advice to users based on their current spending 
 ## 📝 License
 For educational use only. Redistribution or commercial use prohibited.
 
-
----
-
-## 📝 License
-For educational use only. Redistribution or commercial use prohibited.
