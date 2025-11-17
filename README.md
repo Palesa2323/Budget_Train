@@ -74,14 +74,16 @@ Smart Tips provide personalized advice to users based on their current spending 
 
 ## 🖼️ Images / Screenshots
 
-### 🎯 App Rewards System
-![Rewards System](images/Reward.png)
+###  Rewards and Achievements :
+![Smart Tips Feature](Images/Reward.png)
 
-### 💡 Smart Tips on Home Screen
-![Smart Tips Feature](images/SmartTips.png)
+### Reward System 2 :
+![Rewards System](Images/SmartTips2.png)
 
-#### Example of Smart Tip:
-![Smart Tip Demo](images/SmartTips2.png)
+### Smart Tips on Home Screen :
+![Rewards System](Images/SmartTips.png)
+
+
 
 ---
 ## 📦 APK
